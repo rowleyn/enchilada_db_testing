@@ -1,0 +1,15 @@
+[ATOFMS Particle Size Calibration]
+Comment=gromit in lab
+C1=-1.70379
+C2=0.00130374
+C3=-4.24737e-007
+C4=8.28369e-011
+Data Set 1=C:\Documents and Settings\dgross_lab\Desktop\20100701\2000nm\2000nm;3998;2.000; 467.920
+Data Set 2=C:\Documents and Settings\dgross_lab\Desktop\20100701\1600nm_2\1600nm_2;3742;1.600; 1459.232
+Data Set 3=C:\Documents and Settings\dgross_lab\Desktop\20100701\1000nm_2\1000nm_2;3361;1.000; 1397.889
+Data Set 4=C:\Documents and Settings\dgross_lab\Desktop\20100701\700nm_3\700nm_3;3086;0.700; 1808.560
+Data Set 5=C:\Documents and Settings\dgross_lab\Desktop\20100701\510nm\510nm;2871;0.510; 2220.867
+Data Set 6=C:\Documents and Settings\dgross_lab\Desktop\20100701\300nm\300nm;2621;0.300; 1801.753
+Data Set 7=C:\Documents and Settings\dgross_lab\Desktop\20100702\269nm\269nm;2592;0.269; 1156.956
+Data Set 8=C:\Documents and Settings\dgross_lab\Desktop\20100702\204nm\204nm;2509;0.204; 12.269
+Data Set 9=C:\Documents and Settings\dgross_lab\Desktop\20100702\152nm\152nm;2462;0.152; 9.412
