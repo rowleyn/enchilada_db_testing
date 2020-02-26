@@ -103,6 +103,7 @@ public class ReadSpec {
 			in = new FileInputStream(filename);
 		}
 		catch (FileNotFoundException e) {
+			System.out.println("Missing spectrum file, skipping...");
 			return;
 		}
 		ZipInputStream zipInput = 

@@ -5,7 +5,7 @@ import java.util.Map;
 
 public class MongoDBBenchmark implements DatabaseLoad {
 
-    public boolean insert(Map par, List<String[]> sem, List<String[]> set, List<List<Map>> sparse, List<Map> dense) {
+    public boolean insert(Map par, List<String[]> sem, List<String[]> set, List<String> names, List<List<Map>> sparse, List<Map> dense) {
         // format data and insert into db
         // return true if successful and false if not
 

@@ -20,6 +20,7 @@ public class DataRead {
     public Map par;
     public List<String[]> sem;
     public List<String[]> set;
+    public List<String> particlenames;
     public List<List<Map>> sparsemaps;
     public List<Map> densemaps;
 
@@ -63,10 +64,11 @@ public class DataRead {
     }
 
     private void readAllSpectra(String masscal, String sizecal) throws IOException, ParseException {
+        particlenames = new ArrayList<>();
         sparsemaps = new ArrayList<>();
         densemaps = new ArrayList<>();
         DateFormat df = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
-        Pattern p = Pattern.compile("e~");
+        Pattern p = Pattern.compile("e~.*");
         CalInfo calinfo = new CalInfo(masscal, sizecal, false);
         PeakParams peakparams = new PeakParams(0,0,0,0);
         ATOFMSParticle.currCalInfo = calinfo;
@@ -77,9 +79,11 @@ public class DataRead {
                 String filename;
                 if (m.matches()) {
                     filename = "data/" + spectrum[1].substring(0,6) + "/" + spectrum[1].substring(6);
+                    particlenames.add(spectrum[1].substring(6).split("\\.")[0]);
                 }
                 else {
                     filename = "data/" + spectrum[1].substring(0,1) + "/" + spectrum[1].substring(1);
+                    particlenames.add(spectrum[1].substring(1).split("\\.")[0]);
                 }
                 String datetime = spectrum[5];
                 Date date = df.parse(datetime);
