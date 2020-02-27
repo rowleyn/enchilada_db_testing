@@ -18,15 +18,13 @@ import com.opencsv.*;
 
 public class DataRead {
     public Map par;
-    public List<String[]> sem;
     public List<String[]> set;
     public List<String> particlenames;
     public List<List<Map>> sparsemaps;
     public List<Map> densemaps;
 
-    public DataRead(String parfile, String semfile, String setfile, String masscal, String sizecal) throws Exception {
+    public DataRead(String parfile, String setfile, String masscal, String sizecal) throws Exception {
         readParFile(parfile);
-        readSemFile(semfile);
         readSetFile(setfile);
         readAllSpectra(masscal, sizecal);
     }
@@ -46,15 +44,9 @@ public class DataRead {
 
             if (line.length > 0) {
                 String[] keyvalue = line[0].split("=");
-                par.put(keyvalue[0], keyvalue[1]);
+                par.put(keyvalue[0].toLowerCase(), keyvalue[1]);
             }
         }
-    }
-
-    private void readSemFile(String semfile) throws IOException {
-        CSVReader reader = new CSVReader(new FileReader(semfile));
-        sem = reader.readAll();
-        reader.close();
     }
 
     private void readSetFile(String setfile) throws IOException {
@@ -87,8 +79,16 @@ public class DataRead {
                 }
                 String datetime = spectrum[5];
                 Date date = df.parse(datetime);
-                ReadSpec read = new ReadSpec(filename, date);
-                ATOFMSParticle particle = read.getParticle();
+                ATOFMSParticle particle;
+                try {
+                    ReadSpec read = new ReadSpec(filename, date);
+                    particle = read.getParticle();
+                }
+                catch (FileNotFoundException e) {
+                    particle = null;
+                    sparsemaps.add(null);
+                    densemaps.add(null);
+                }
                 if (particle != null) {
                     sparsemaps.add(particle.particleInfoSparseMap());
                     densemaps.add(particle.particleInfoDenseMap());

@@ -96,16 +96,10 @@ public class ReadSpec {
 	 * @param filename - file name of particle.
 	 * @return - the particle created from the file information. 
 	 */
-	public void readZipped(String filename, Date d) throws IOException, ZipException {		
+	public void readZipped(String filename, Date d) throws IOException, ZipException {
 		// Reads the file using ZipInputStream.
 		FileInputStream in;
-		try {
-			in = new FileInputStream(filename);
-		}
-		catch (FileNotFoundException e) {
-			System.out.println("Missing spectrum file, skipping...");
-			return;
-		}
+		in = new FileInputStream(filename);
 		ZipInputStream zipInput = 
 			new ZipInputStream(new BufferedInputStream(in));
 		ZipEntry ze = zipInput.getNextEntry();

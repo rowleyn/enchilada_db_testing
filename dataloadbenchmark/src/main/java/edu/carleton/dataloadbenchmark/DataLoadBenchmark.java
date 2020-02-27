@@ -14,7 +14,6 @@ public class DataLoadBenchmark {
         // read in all dataset files
         DataRead data = new DataRead(
                 "data/e/e.par",
-                "data/e/e.sem",
                 "data/e/e.set",
                 "data/20100812_metals_00005_masscal.cal",
                 "data/sizecal_20100701.noz");
@@ -42,7 +41,7 @@ public class DataLoadBenchmark {
         // Perform benchmarks
         for (DatabaseLoad db : dbs) {
             long start = System.currentTimeMillis();
-            db.insert(data.par, data.sem, data.set, data.particlenames, data.sparsemaps, data.densemaps);
+            db.insert(data.par, data.set, data.particlenames, data.sparsemaps, data.densemaps);
             long end = System.currentTimeMillis();
             long timeelapsed = end - start;
             writer.write(db.name() + timeelapsed);
