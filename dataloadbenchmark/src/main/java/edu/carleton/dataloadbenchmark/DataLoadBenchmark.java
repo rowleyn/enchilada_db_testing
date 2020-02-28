@@ -4,7 +4,6 @@ package edu.carleton.dataloadbenchmark;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class DataLoadBenchmark {
@@ -37,15 +36,27 @@ public class DataLoadBenchmark {
         BufferedWriter writer = new BufferedWriter(new FileWriter("results.txt"));
 
         // Instantiate database inserters here and add them to list
+        DatabaseLoad mongo = new MongoDBBenchmark();
+
+        dbs.add(mongo);
 
         // Perform benchmarks
         for (DatabaseLoad db : dbs) {
+            db.clear();
+            System.out.println("Beginning benchmark for system: " + db.name());
             long start = System.currentTimeMillis();
-            db.insert(data.par, data.set, data.particlenames, data.sparsemaps, data.densemaps);
+            boolean success = db.insert(data);
             long end = System.currentTimeMillis();
-            long timeelapsed = end - start;
-            writer.write(db.name() + timeelapsed);
-            writer.newLine();
+            if (success) {
+                System.out.println("Benchmark finished for system: " + db.name());
+                long timeelapsed = end - start;
+                writer.write(db.name() + ": " + timeelapsed + " milliseconds");
+                writer.newLine();
+            }
+            else {
+                writer.write("Benchmark failed for system: " + db.name());
+                writer.newLine();
+            }
         }
 
         writer.close();

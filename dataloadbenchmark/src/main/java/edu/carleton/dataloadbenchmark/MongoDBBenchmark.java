@@ -14,35 +14,39 @@ import java.util.*;
 
 public class MongoDBBenchmark implements DatabaseLoad {
 
-    public boolean insert(Map par, List<String[]> set, List<String> names, List<List<Map>> sparse, List<Map> dense) {
+    public void clear() {
+        MongoClient mongoClient = MongoClients.create();
+        MongoDatabase database = mongoClient.getDatabase("enchilada_benchmark");
+        MongoCollection<Document> pars = database.getCollection("pars");
+        MongoCollection<Document> particles = database.getCollection("particles");
+
+        pars.drop();
+        particles.drop();
+    }
+
+    public boolean insert(DataRead reader) {
         // format data and insert into db
         // return true if successful and false if not
-
-        String dbdatasetname = (String)par.get("dbdatasetname");
-        par.remove("dbdatasetname");
-        par.put("_id", dbdatasetname);
-
-        Document pardoc = new Document(par);
-        List<Document> spectra = new ArrayList<>();
-
-        for (int i = 0; i < set.size(); i++) {
-            Map spectrum = new HashMap();
-            spectrum.put("_id", names.get(i));
-            spectrum.put("par_id", dbdatasetname);
-            spectrum.put("sparsedata", sparse.get(i));
-            spectrum.put("densedata", dense.get(i));
-
-            spectra.add(new Document("spectrum", spectrum));
-        }
 
         MongoClient mongoClient = MongoClients.create();
         MongoDatabase database = mongoClient.getDatabase("enchilada_benchmark");
         MongoCollection<Document> pars = database.getCollection("pars");
         MongoCollection<Document> particles = database.getCollection("particles");
 
+        Map par = new HashMap();
+
+        String dbdatasetname = (String)reader.par.get("dbdatasetname");
+        par.put("_id", dbdatasetname);
+        par.put("datasetname", reader.par.get("datasetname"));
+        par.put("starttime", reader.par.get("starttime"));
+        par.put("startdate", reader.par.get("startdate"));
+        par.put("inlettype", reader.par.get("inlettype"));
+        par.put("comment", reader.par.get("comment"));
+
+        Document pardoc = new Document(par);
+
         try {
             pars.insertOne(pardoc);
-            particles.insertMany(spectra);
         }
         catch (MongoException e) {
             System.out.println("Something went wrong...");
@@ -51,6 +55,42 @@ public class MongoDBBenchmark implements DatabaseLoad {
 
             return false;
         }
+
+        //List<Document> spectra = new ArrayList<>();
+        boolean moretoread = true;
+        int setindex = 0;
+
+        while (moretoread) {
+            List data = reader.readNSpectraFrom(1, setindex);
+            setindex = (int)data.get(data.size() - 1);
+            List<Document> spectra = new ArrayList<>();
+
+            for (int i = 0; i < data.size() - 1; i++) {
+                Map spectrum = new HashMap();
+                spectrum.put("_id", ((Map)data.get(i)).get("name"));
+                spectrum.put("par_id", dbdatasetname);
+                spectrum.put("sparsedata", ((Map)data.get(i)).get("sparse"));
+                spectrum.put("densedata", ((Map)data.get(i)).get("dense"));
+                spectra.add(new Document(spectrum));
+            }
+
+            try {
+                particles.insertOne(spectra.get(0));
+            }
+            catch (MongoException e) {
+                System.out.println("Something went wrong...");
+                System.out.println("System: " + name());
+                System.out.println(e);
+
+                return false;
+            }
+
+            if (setindex >= reader.set.size()) {
+                moretoread = false;
+            }
+        }
+
+        mongoClient.close();
 
         return true;
     }
