@@ -55,6 +55,9 @@ public class CassandraConnector
         out.println("Connecting to IP Address " + ipAddress + ":" + port + "...");
         client.connect(ipAddress, port);
 
+        final String createKeySpace =
+                "CREATE KEYSPACE IF NOT EXISTS movies_keyspace WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3};";
+        client.getSession().execute(createKeySpace);
 
         final String createMovieCql =
                 "CREATE TABLE movies_keyspace.movies (title varchar, year int, description varchar, "
