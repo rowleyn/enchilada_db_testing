@@ -83,26 +83,4 @@ public class Centroid {
 //		sumDistances = sumSqDistances = 0;
 		subCollectionNum = -1;
 	}
-	
-	/**
-	 * Constructor with subCollectionNumPassed as a parameter.
-	 * @param peaks
-	 * @param numMembers
-	 * @param subCollectionNum
-	 */
-	public Centroid (BinnedPeakList peaks, int numMembers,
-			int subCollectionNum)
-	{
-		this.peaks = peaks;
-		this.numMembers = numMembers;
-		this.subCollectionNum = subCollectionNum;
-	}
-	
-//	public float getMeanDistance() {
-//		return Math.max(sumDistances / numMembers, 0);
-//	}
-//	
-//	public float getStdDevDistance() {
-//		return (float) Math.sqrt((sumSqDistances/numMembers)-Math.pow(sumDistances/numMembers, 2));
-//	}
 }

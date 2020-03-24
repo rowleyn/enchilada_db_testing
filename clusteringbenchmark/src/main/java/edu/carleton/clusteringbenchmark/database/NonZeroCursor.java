@@ -105,12 +105,4 @@ public class NonZeroCursor implements CollectionCursor {
 	public void close() {
 	    cursor.close();
 	}
-	
-	// This method is left unimplemented because its meaning is unclear:
-	// what is the ith record when zero peak list records have been
-	// skipped?
-	public ParticleInfo get(int i) throws NoSuchMethodException {
-	    throw new NoSuchMethodException("Method does not make sense " +
-	            "for a NonZeroCursor.");
-	}
 }

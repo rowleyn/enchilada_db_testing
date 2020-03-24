@@ -53,12 +53,6 @@ public class BinnedPeak {
 	private float value;
 	private int key;
 	private Map.Entry<Integer, Float> entry;
-	
-	public BinnedPeak(int l, float a)
-	{
-		key = l;
-		value = a;
-	}
 
 	/**
 	 * Creates a new binned peak with a reference back to the entry in the 
@@ -91,10 +85,6 @@ public class BinnedPeak {
 
 	public float getValue() {
 		return value;
-	}
-
-	public void setKey(int key) {
-		this.key = key;
 	}
 
 	public int getKey() {

@@ -46,9 +46,7 @@ package edu.carleton.clusteringbenchmark.analysis.clustering;
 
 import edu.carleton.clusteringbenchmark.ATOFMS.ParticleInfo;
 import edu.carleton.clusteringbenchmark.analysis.BinnedPeakList;
-import edu.carleton.clusteringbenchmark.analysis.CollectionDivider;
 import edu.carleton.clusteringbenchmark.analysis.PeakTransform;
-import edu.carleton.clusteringbenchmark.analysis.SubSampleCursor;
 import edu.carleton.clusteringbenchmark.database.CollectionCursor;
 import edu.carleton.clusteringbenchmark.database.InfoWarehouse;
 import edu.carleton.clusteringbenchmark.database.NonZeroCursor;
@@ -71,7 +69,6 @@ import java.util.TreeSet;
  */
 public abstract class ClusterK extends Cluster {
 
-	public static final int DEFAULT_RANDOM = 90125;
 	/* Declared Class Variables */
 	/**
 	 * sets how we want to pick initial centroids
@@ -84,7 +81,6 @@ public abstract class ClusterK extends Cluster {
 	private boolean createCentroids = true;
 
 	private static float error = 0.01f;
-	private static int randomNumber = DEFAULT_RANDOM;
 	protected NonZeroCursor curs;
 	private int returnThis;
 	private double difference;
@@ -105,13 +101,12 @@ public abstract class ClusterK extends Cluster {
 	 * @param comment  - comment to insert
 	 */
 	public ClusterK(int cID, InfoWarehouse database, int k,
-					String name, String comment, int initialCentroids, ClusterInformation c) {
-		super(cID, database, name.concat(",K=" + k), comment, c.normalize);
+					String name, String comment, boolean normalize) {
+		super(cID, database, name.concat(",K=" + k), comment, normalize);
 		this.k = k;
 		collectionID = cID;
 		parameterString = name.concat(",K=" + k + super.folderName);
 		totalDistancePerPass = new ArrayList<Double>();
-		super.clusterInfo = c;//set inherited variable
 	}
 
 	/**
@@ -143,22 +138,6 @@ public abstract class ClusterK extends Cluster {
 		return 0;
 	}
 
-	// why weren't these methods defined in Cluster?
-	public boolean setCursorType(int type) {
-		switch (type) {
-			case CollectionDivider.DISK_BASED:
-				System.out.println("DISK_BASED");
-				curs = new NonZeroCursor(db.getBPLOnlyCursor(db.getCollection(collectionID)));
-				return true;
-			case CollectionDivider.STORE_ON_FIRST_PASS:
-				System.out.println("STORE_ON_FIRST_PASS");
-				curs = new NonZeroCursor(db.getMemoryClusteringCursor(db.getCollection(collectionID), clusterInfo));
-				return true;
-			default:
-				return false;
-		}
-	}
-
 	private static class OutlierData implements Comparable<OutlierData> {
 		private BinnedPeakList peakList;
 		private double distance;
@@ -177,6 +156,8 @@ public abstract class ClusterK extends Cluster {
 				return 0;
 		}
 	}
+
+	public void setCurs(NonZeroCursor curs) {this.curs = curs;}
 
 	/**
 	 * ProcessPart is the method that does the actual clustering.  For K-Means and
@@ -382,8 +363,7 @@ public abstract class ClusterK extends Cluster {
 				return centroidList;
 			}
 
-			// If there is one (or more) empty centroids, replace them 
-			ArrayList<Integer> emptyCentIndex = new ArrayList<Integer>();
+			// If there is one (or more) empty centroids, replace them
 			isStable = stableCentroids(totalDistancePerPass);
 			for (int i = 0; i < k; i++) {
 				if (particlesInCentroids.get(i).size() == 0) {
@@ -459,20 +439,11 @@ public abstract class ClusterK extends Cluster {
 		// point, take the one that is furthest away from the closest
 		// of the centroids chosen so far.
 
-		if (randomNumber == DEFAULT_RANDOM) {
-			// for backward compatibility, the default should be the first.  we used to ignore the random seed--jtbigwoo
-			curs.reset();
-			boolean status = curs.next();
-			assert status : "Cursor is empty.";
-			newCent = getCurrentParticleAsCentroid(curs);
-		} else {
-			db.seedRandom(randomNumber);
-			CollectionCursor randCurs =
-					db.getRandomizedCursor(db.getCollection(collectionID));
-			NonZeroCursor partCurs = new NonZeroCursor(randCurs);
-			partCurs.next();
-			newCent = getCurrentParticleAsCentroid(partCurs);
-		}
+		// for backward compatibility, the default should be the first.  we used to ignore the random seed--jtbigwoo
+		curs.reset();
+		boolean status = curs.next();
+		assert status : "Cursor is empty.";
+		newCent = getCurrentParticleAsCentroid(curs);
 
 		assert (newCent != null) : "Error adding centroid";
 		assert (newCent.peaks != null) : "New centroid has no peaklist!";

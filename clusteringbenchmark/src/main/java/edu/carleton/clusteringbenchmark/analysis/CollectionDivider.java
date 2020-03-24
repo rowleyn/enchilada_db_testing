@@ -65,22 +65,6 @@ public abstract class CollectionDivider {
 	protected String comment;
 	
 	private StringBuilder atomIDsToDelete;
-	
-	/**
-	 * Use a disk based cursor/retrieve each row from the database
-	 * every time you want to access it.
-	 */
-	public static final int DISK_BASED = 0;
-
-	/**
-	 * Store each row in memory on the first pass and in 
-	 * subsequent passes.  
-	 * TODO: CURRENTLY UNTESTED!!!
-	 */
-	public static final int STORE_ON_FIRST_PASS = 1;
-
-	// Random subsampling cursor
-	public static final int RANDOM_SUBSAMPLE = 2;
 
 	/**
 	 * The collection you are dividing
@@ -144,19 +128,6 @@ public abstract class CollectionDivider {
 	}
 
 	/**
-	 * Implement this method so it returns true on supported types
-	 * and false on unsupported.  This method must be called 
-	 * before calling divide.  If the type is supported, 
-	 * initialize curs using one of the InfoWarehouse getCursor
-	 * methods
-	 * 
-	 * @param type	DISK_BASED or STORE_ON_FIRST_PASS, or others
-	 * @return true if the cursor type is supported, false 
-	 * otherwise
-	 */
-	abstract public boolean setCursorType(int type);
-
-	/**
 	 * Creates a new subcollection and returns an int by which 
 	 * the subcollection can be referred to when putting particles
 	 * into it.  
@@ -177,29 +148,6 @@ public abstract class CollectionDivider {
 	}
 
 	/**
-	 * Creates an empty sub Collection with a name and comments.
-	 * @param name
-	 * @param comments
-	 * @return - sub collection number
-	 */
-	protected int createSubCollection(
-			String name, 
-			String comments)
-	{
-		int subCollectionID = 0;
-		numSubCollections++;
-		subCollectionID = db.createEmptyCollection(collection.getDatatype(),newHostID,
-				name, 
-				comments,"");
-		assert (subCollectionID != -1) :"Error creating empty subcollection: " 
-			+ name + "Comments: " + comments;
-		subCollectionIDs.add(new Integer(subCollectionID));
-		return numSubCollections;
-	}
-
-
-	
-	/**
 	 * Creates an emtpy collection of the same datatype in the root level for
 	 * cluster centers.
 	 * @param	name
@@ -216,27 +164,7 @@ public abstract class CollectionDivider {
 		assert (collID != -1) : "Error creating empty center collection.";
 		return collID;
 	}
-	
-	/**
-	 * Initializes putInSubcollectionBatch.
-	 */
-	protected void putInSubCollectionBatchInit() {
-		atomIDsToDelete = new StringBuilder("");
-		db.atomBatchInit();
-	}
 
-	/**
-	 * adds atoms to a batch that is eventually executed.
-	 * @param atomID
-	 * @param target
-	 * @return - true if atom can be added.
-	 */
-	protected boolean putInSubCollectionBatch(int atomID, int target)
-	{
-		atomIDsToDelete.append(atomID + ",");
-		return db.addAtomBatch(atomID,
-				subCollectionIDs.get(target-1).intValue());
-	}
 	/**
 	* Does the bulk version of putInSubCollectionBatch
 	* @author christej
@@ -256,34 +184,7 @@ public abstract class CollectionDivider {
 		}
 
 	}
-	/**
-	 * Executes putInSubCollectionBatch
-	 */
-	protected void putInSubCollectionBatchExecute()
-	{
-		System.out.println("About to execute INSERTs.");
-		//System.out.println((new Date()).toString());
-		db.atomBatchExecute();
-		System.out.println("Done with INSERTS, about to do DELETE");
-		//System.out.println((new Date()).toString());
-		db.atomBatchInit();
-		
-		String atomIDsToDel = atomIDsToDelete.toString();
-		if (atomIDsToDel.length() > 0 &&
-				atomIDsToDel.length() < 2000) {
-			atomIDsToDel = atomIDsToDel.substring(0,atomIDsToDel.length()-1);
-			db.deleteAtomsBatch(atomIDsToDel,collection);
-		} else if (atomIDsToDel.length() > 0 &&
-				atomIDsToDelete.length() >= 2000) {
-			Scanner atomIDs = new Scanner(atomIDsToDel).useDelimiter(",");
-			while (atomIDs.hasNext()) {
-				db.deleteAtomBatch(atomIDs.nextInt(), collection);
-			}
-		}
-		db.atomBatchExecute();
-		System.out.println("Done with DELETEs.");
-		//System.out.println((new Date()).toString());
-	}
+
 	/**
 	 * Executes putInSubCollectionBulk
 	 * @author christej 

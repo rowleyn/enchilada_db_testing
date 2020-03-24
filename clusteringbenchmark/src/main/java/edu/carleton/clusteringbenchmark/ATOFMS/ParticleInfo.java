@@ -44,9 +44,7 @@
 package edu.carleton.clusteringbenchmark.ATOFMS;
 
 import edu.carleton.clusteringbenchmark.analysis.BinnedPeakList;
-import edu.carleton.clusteringbenchmark.analysis.clustering.PeakList;
 import edu.carleton.clusteringbenchmark.atom.ATOFMSAtomFromDB;
-import edu.carleton.clusteringbenchmark.atom.GeneralAtomFromDB;
 
 /**
  * This holds a peaklist, an ATOFMSAtomFromDB, and a 
@@ -56,9 +54,7 @@ import edu.carleton.clusteringbenchmark.atom.GeneralAtomFromDB;
  * @author andersbe
  */
 public class ParticleInfo {
-	private PeakList peakList;
 	private ATOFMSAtomFromDB particleInfo;
-	private GeneralAtomFromDB info;
 	private BinnedPeakList binnedList;
 	private int ID;
 	
@@ -68,41 +64,7 @@ public class ParticleInfo {
 	public ATOFMSAtomFromDB getATOFMSParticleInfo() {
 		return particleInfo;
 	}
-	
-	/**
-	 * Gets generic particle info.
-	 * @return	The information of a particle.
-	 */
-	public GeneralAtomFromDB getParticleInfo(){
-		return info;
-	}
-	
-	/**
-	 * @param particleInfo The particleInfo to set.
-	 */
-	public void setParticleInfo(ATOFMSAtomFromDB particleInfo) {
-		this.particleInfo = particleInfo;
-	}
-	
-	/**
-	 * A generic way to set particle info.
-	 * @param info
-	 */
-	public void setParticleInfo(GeneralAtomFromDB info){
-		this.info = info;
-	}
-	/**
-	 * @return Returns the peakList.
-	 */
-	public PeakList getPeakList() {
-		return peakList;
-	}
-	/**
-	 * @param peakList The peakList to set.
-	 */
-	public void setPeakList(PeakList peakList) {
-		this.peakList = peakList;
-	}
+
 	/**
 	 * @return Returns the binnedList.
 	 */
@@ -112,13 +74,6 @@ public class ParticleInfo {
 	/**
 	 * @param binnedList The binnedList to set.
 	 */
-	public void setBinnedList(BinnedPeakList binnedList) {
-		this.binnedList = binnedList;
-	}
-	
-	public void setID(int id) {
-		this.ID = id;
-	}
 	
 	public int getID() {
 		return ID;

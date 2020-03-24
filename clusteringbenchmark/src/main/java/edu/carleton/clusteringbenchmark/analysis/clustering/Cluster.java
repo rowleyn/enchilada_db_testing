@@ -67,10 +67,9 @@ import java.util.regex.Pattern;
  */
 public abstract class Cluster extends CollectionDivider {
 	protected ArrayList<Double> totalDistancePerPass;
-	protected int numPasses, collectionID;
+	protected int collectionID;
 	protected String parameterString;
 	protected String folderName;
-	protected ClusterInformation clusterInfo;
 	protected static double power = 1.0;	//the power to which the peak areas
 											//are raised during preprocessing.
 
@@ -112,33 +111,6 @@ public abstract class Cluster extends CollectionDivider {
 		totalDistancePerPass = new ArrayList<Double>();
 	}
 	
-	/**
-	 * Sets the cluster information for this cluster.
-	 * @param cl
-	 */
-	public void addInfo(ClusterInformation cl){
-		clusterInfo = cl;
-	}
-	
-	/**
-	 * @author steinbel
-	 * Resets the power to which peaks will be raised during preprocessing.
-	 * @param newPower	The new power to which the peaks will be raised.
-	 */
-	public static void setPower(double newPower){
-		power = newPower;
-	}
-
-	/**
-	 * Sets the smallest peak that we'll include in the clusters for graphing.
-	 * Peaks will be divided by this value.
-	 * Any cluster smaller than this will be set to zero.
-	 * @param newSmallestPeak
-	 */
-	public static void setSmallestNormalizedPeak(float newSmallestPeak) {
-		smallestNormalizedPeak = newSmallestPeak;
-	}
-	
 	// For efficiency it can be useful to represent a list of centroids as
 	// a list of arrays of floats.
 	// Code by benzaids, wrapped by dmusican
@@ -165,30 +137,6 @@ public abstract class Cluster extends CollectionDivider {
 		}
 		//**********
 		return tempCentroidList;
-	}
-	
-	/**
-	 * 
-	 * 
-	 * Sets the distance metric.  If using K-Means, the distance metric will always
-	 * be Euclidean Squared, since it is guaranteed to decrease.  If using K-Medians, the
-	 * distance metric will always be City Block, since it is guaranteed to decrease.
-	 * 
-	 * (non-Javadoc)
-	 * @see edu.carleton.clusteringbenchmark.analysis.clustering.Cluster#setDistancMetric(int)
-	 */
-	public boolean setDistanceMetric(DistanceMetric method) {
-		distanceMetric = method;
-		if (method == DistanceMetric.CITY_BLOCK)
-			return true;
-		else if (method == DistanceMetric.EUCLIDEAN_SQUARED)
-			return true;
-		else if (method == DistanceMetric.DOT_PRODUCT)
-			return true;
-		else
-		{
-			throw new IllegalArgumentException("Illegal distance metric.");
-		}
 	}
 	
 	/**
@@ -237,136 +185,7 @@ public abstract class Cluster extends CollectionDivider {
 			out.println(tempPeak.getKey() + "\t" + tempPeak.getValue());
 		}
 	}
-		
-	/**
-	 * Returns the distance between the vectors represented by
-	 * two peaklists.  Uses whichever distance metric has been 
-	 * set.
-	 * @param list1 The first atom's peaklist.
-	 * @param list2 The second atom's peaklist.
-	 * @return the distance between the atoms.
-	 */
-	protected double ogetDistance(BinnedPeakList list1, 
-			BinnedPeakList list2)
-	{
-		ArrayList<Integer> checkedLocations = new ArrayList<Integer>();
-		double distance = 0;
-		BinnedPeakList longer, shorter;
-		if (list1.length() < list2.length())
-		{
-			shorter = list1;
-			longer = list2;
-		}
-		else
-		{
-			longer = list1;
-			shorter = list2;
-		}
-		BinnedPeak temp;
-		double shorterTemp;
-		Iterator<BinnedPeak> longIter = longer.iterator();
-		while (longIter.hasNext())
-		{
-			temp = longIter.next();
-			checkedLocations.add(new Integer(temp.getKey()));
-			if (distanceMetric == DistanceMetric.CITY_BLOCK)
-				distance += Math.abs(temp.getValue() - 
-						shorter.getAreaAt(temp.getKey()));
-			else if (distanceMetric == DistanceMetric.EUCLIDEAN_SQUARED)
-			{
-				shorterTemp = shorter.getAreaAt(temp.getKey());
-				distance += (temp.getValue() - shorterTemp)
-				* (temp.getValue() - shorterTemp);
-			}
-			else
-				distance = -1.0f;
-		}
-		boolean alreadyChecked = false;
-		Iterator<BinnedPeak> shortIter = shorter.iterator();
-		while (shortIter.hasNext())
-		{
-			alreadyChecked = false;
-			temp = shortIter.next();
-			double longerTemp;
-			for (Integer loc : checkedLocations)
-				if (temp.getKey() == loc.intValue())
-					alreadyChecked = true;
-			if (!(alreadyChecked))
-			{
-				if (distanceMetric == DistanceMetric.CITY_BLOCK)
-					distance += Math.abs(temp.getValue() - 
-							longer.getAreaAt(temp.getKey()));
 
-				else if (distanceMetric == DistanceMetric.EUCLIDEAN_SQUARED)
-				{
-					longerTemp = longer.getAreaAt(temp.getKey());
-					distance += (temp.getValue() - longerTemp) *
-					(temp.getValue() - longerTemp);
-				}
-				else
-					distance = -1.0f;
-			}
-		}
-		
-		if (distance > 2) {
-			System.out.println("Rounding off " + distance +
-					"to 2.0");
-			distance = 2.0f;
-		}
-		assert (distance >= 0) : "distance between two peaklists is -1";
-		return distance;
-	}
-
-	/**
-	 * prints the distance to the nearest centroid.
-	 * @param centroidList
-	 * @param curs
-	 */
-	protected void printDistanceToNearestCentroid(
-			ArrayList<Centroid> centroidList,
-			CollectionCursor curs)
-	{
-		int particleCount = 0;
-		ParticleInfo thisParticleInfo = null;
-		BinnedPeakList thisBinnedPeakList = null;
-		double nearestDistance = 3.0;
-		double totalDistance = 0.0;
-		double distance = 3.0;
-		int chosenCluster = -1;
-		curs.reset();
-		while(curs.next())
-		{ // while there are particles remaining
-			particleCount++;
-			thisParticleInfo = curs.getCurrent();
-			thisBinnedPeakList = thisParticleInfo.getBinnedList();
-			//thisBinnedPeakList = thisParticleInfo.getBinnedList().copyOf();
-			thisBinnedPeakList.normalize(distanceMetric,posNegNorm);
-			// no centroid will be found further than the max distance (2.0)
-			// since that centroid would not be considered
-			nearestDistance = 3.0f;
-			for (int centroidIndex = 0; 
-			centroidIndex < centroidList.size(); 
-			centroidIndex++)
-			{// for each centroid
-				distance = centroidList.get(centroidIndex).peaks.
-					getDistance(thisBinnedPeakList, distanceMetric);
-				if (distance < nearestDistance)
-				{
-					nearestDistance = distance;
-					chosenCluster = centroidIndex;
-				}
-			}// end for each centroid
-			Centroid temp = centroidList.get(chosenCluster);
-			totalDistance += nearestDistance;
-			
-		}// end while there are particles remaining
-		curs.reset();
-		
-		System.out.println("Stable Centroid average distance: " + 
-				totalDistance/particleCount);
-		
-	}
-	
 	/**
 	 * This method assigns atoms to nearest centroid using only centroidList
 	 * and collection cursor. ClusterK only. This also averages the final
@@ -378,7 +197,7 @@ public abstract class Cluster extends CollectionDivider {
 	protected int assignAtomsToNearestCentroid(
 			ArrayList<Centroid> centroidList,
 			CollectionCursor curs, boolean saveCentroids){
-		return assignAtomsToNearestCentroid(centroidList, curs, (double)2.5, clusterInfo.normalize, true, saveCentroids);
+		return assignAtomsToNearestCentroid(centroidList, curs, (double)2.5, isNormalized, true, saveCentroids);
 	}
 	/**
 	* This method assigns atoms to nearest centroid using only centroidList
@@ -388,7 +207,7 @@ public abstract class Cluster extends CollectionDivider {
 	* @param minDistance used by cluster query, indicates the minimum distance
 	* a particle must be from a centroid
 	* @param normalize whether the centroids are normalized
-	* @param changecentroids whether the centroids should be modified as particles are assigned to them
+	* @param changeCentroids whether the centroids should be modified as particles are assigned to them
 	* @param saveCentroids whether the we save the centroids in the db.
 	* Set this to false when you're interested in saving the centroids to the db, but
 	* you don't want to actually divide up the source
@@ -418,7 +237,6 @@ public abstract class Cluster extends CollectionDivider {
 		double distance = 3.0;
 		int chosenCluster = -1;
 		TIntShortHashMap clusterMapping = new TIntShortHashMap();
-		putInSubCollectionBatchInit();
 		
 		ArrayList<float[]> tempCentroidList =
 			Cluster.generateCentroidArrays(centroidList,ARRAYOFFSET);
@@ -515,7 +333,6 @@ public abstract class Cluster extends CollectionDivider {
 			
 			short centroidIndex = clusterMapping.get(thisParticleInfo.getID());
 			Centroid temp = centroidList.get(centroidIndex);
-			distance = thisBinnedPeakList.getDistance(temp.peaks, distanceMetric);
 			
 //			temp.sumDistances += distance;
 //			temp.sumSqDistances += distance*distance;
@@ -545,104 +362,7 @@ public abstract class Cluster extends CollectionDivider {
 		
 		return newHostID;
 	}
-	
-	/**
-	 * If Art2a is the clustering tool, we need to include vigilance as another
-	 * parameter for assign atoms to nearest centroid.
-	 * 
-	 * @param centroidList
-	 * @param curs
-	 * @param vigilance
-	 * @return
-	 */
-	protected int assignAtomsToNearestCentroid(
-			ArrayList<Centroid> centroidList,
-			CollectionCursor curs,
-			float vigilance, boolean saveCentroids)
-	{		
-		Centroid outliers = new Centroid(null, 0);
-		int particleCount = 0;
-		ParticleInfo thisParticleInfo = null;
-		BinnedPeakList thisBinnedPeakList = null;
-		double nearestDistance = 3.0;
-		double totalDistance = 0.0;
-		double distance = 3.0;
-		int chosenCluster = -1;
-		putInSubCollectionBatchInit();
-		while(curs.next())
-		{ // while there are particles remaining
-			particleCount++;
-			thisParticleInfo = curs.getCurrent();
-			thisBinnedPeakList = thisParticleInfo.getBinnedList();
-			thisBinnedPeakList.normalize(distanceMetric);
-			// no centroid will be found further than the 
-			// vigilance since that centroid would not be 
-			// considered
-			nearestDistance = 3.0;
-			for (int centroidIndex = 0; centroidIndex < centroidList.size(); 
-				centroidIndex++)
-			{// for each centroid
-				distance = centroidList.get(centroidIndex).peaks.
-					getDistance(thisBinnedPeakList, distanceMetric);
-				if (distance < nearestDistance)
-				{
-					nearestDistance = distance;
-					chosenCluster = centroidIndex;
-				}
-			}// end for each centroid
-			if (nearestDistance > vigilance)
-			{
-				if (outliers.numMembers == 0)
-					outliers.subCollectionNum = 
-						createSubCollection("Outliers", "Outliers");
-				putInSubCollectionBatch(thisParticleInfo.getID(),
-						outliers.subCollectionNum);
-				System.out.println("putting in subcollectionbatch " + thisParticleInfo.getID() + " " + outliers.subCollectionNum);
-				outliers.numMembers++;
-				System.out.println("Outlier #" + outliers.numMembers);
-			}
-			else
-			{
-				Centroid temp = centroidList.get(chosenCluster);
-				totalDistance += nearestDistance;
-				
-				if (temp.numMembers == 0)
-				{
-					temp.subCollectionNum = createSubCollection();
-				}
-					
-				putInSubCollectionBatch(
-						thisParticleInfo.getID(), 
-						temp.subCollectionNum);
-				System.out.println("putting in subcollectionbatch2 " + thisParticleInfo.getID() + " " + temp.subCollectionNum);
 
-				temp.numMembers++;
-			}
-			
-		}// end while there are particles remaining
-		putInSubCollectionBatchExecute();
-		curs.reset();
-
-		if (clusterInfo.normalize){
-			//boost the peaklist
-			// By dividing by the smallest peak area, all peaks get scaled up.
-			// Because we're going to convert these to ints in a minute anything
-			// smaller than the smallest peak area will get converted to zero.
-			// it's a hack, I know-jtbigwoo
-			for (Centroid c: centroidList){
-				c.peaks.divideAreasBy(smallestNormalizedPeak);
-			}
-		}
-	
-		if (saveCentroids) {
-			createCenterAtoms(centroidList, subCollectionIDs);
-		}
-		totalDistancePerPass.add(new Double(totalDistance));
-		printDescriptionToDB(particleCount, centroidList);
-		
-		return newHostID;
-	}
-	
 	/**
 	 * @author steinbel
 	 * Creates the "center atoms" from a list of centroids, and puts them into
@@ -685,7 +405,7 @@ public abstract class Cluster extends CollectionDivider {
 		Pattern bitP = Pattern.compile("BIT");
 		Matcher m;
 		int q = 0;
-		
+
 		for (Centroid center: centerList){
 			
 			totValues = new ArrayList<Float>();
@@ -835,10 +555,6 @@ public abstract class Cluster extends CollectionDivider {
 		}
 	}
 	
-	public static void setPosNegNorm(boolean pnNorm) {
-		posNegNorm = pnNorm;
-	}
-	
 	/**
 	 * prints the relevant info to the database
 	 * @param particleCount
@@ -970,9 +686,5 @@ public abstract class Cluster extends CollectionDivider {
 		
 		return params;
 		
-	}
-	
-	public static void setAreaTransform(PeakTransform transform) {
-		peakTransform = transform;
 	}
 }

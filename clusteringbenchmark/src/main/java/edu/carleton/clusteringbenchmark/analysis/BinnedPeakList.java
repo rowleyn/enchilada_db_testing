@@ -39,7 +39,6 @@
 
 package edu.carleton.clusteringbenchmark.analysis;
 
-import edu.carleton.clusteringbenchmark.analysis.PeakTransform;
 import edu.carleton.clusteringbenchmark.analysis.dataCompression.Pair;
 
 import java.util.*;
@@ -340,60 +339,6 @@ public class BinnedPeakList implements Iterable<BinnedPeak> {
 		}
 	}
 
-
-
-
-	/**
-	 * Find the distance between this peaklist and another one. By including
-	 * the magnitude of the other peak list, the method can be run faster.
-	 * @param other The peaklist to compare to
-	 * @param magnitude The magnitude of the other peak list
-	 * @param metric The distance metric to use
-	 * @return the distance between the lists.
-	 */
-	public float getDistance(BinnedPeakList other, float magnitude,
-							 DistanceMetric metric) {
-
-		/*
-		 * The following distance calculation algorithm is very similar to the
-		 * merge part of merge sort, where you riffle through both lists looking
-		 * for the lowest entry, and choosing that one.  The extra condition
-		 * is when we have an entry for the same dimension in each list,
-		 * in which case we don't choose one but calculate the distance between
-		 * them.
-		 */
-		long temptime = System.currentTimeMillis();
-
-		float distance = magnitude;
-
-		// loop over this peak list, accumulating magnitude as you go,
-		// but calculating distance if match with other (and subtracting off
-		// that portion from magnitude with other)
-		for (Entry<Integer,Float> i : peaks.entrySet()) {
-			int iKey = i.getKey();
-			float iValue = i.getValue();
-			if (other.peaks.containsKey(iKey)) {
-				float otherValue = other.peaks.get(iKey);
-				distance = distance +
-					(DistanceMetric.getDistance(iValue,otherValue,metric) -
-					DistanceMetric.getDistance(0,otherValue,metric));
-			}
-			else {
-				distance += DistanceMetric.getDistance(0, iValue, metric);
-			}
-		}
-
-		if (metric == DistanceMetric.DOT_PRODUCT)
-		    distance = 1-distance;
-		// dot product actually comes up with similarity, rather than distance,
-		// so we take 1- it to find "distance".
-
-		dist2Time += System.currentTimeMillis() - temptime;
-
-		return normalizable.roundDistance(this, other, metric, distance);
-	}
-
-
 	/**
 	 * Find the distance between this peaklist and another one. By including
 	 * the magnitude of the other peak list, the method can be run faster.
@@ -446,50 +391,6 @@ public class BinnedPeakList implements Iterable<BinnedPeak> {
 		return normalizable.roundDistance(this, other, metric, distance);
 	}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	/**
-	 * Add a regular peak to the peaklist.  This actually involves
-	 * quite a bit of processing.  First, each float key is
-	 * rounded to its nearest integer value.  Then, that key
-	 * is checked in the current peak to see if it already exists.
-	 * If it does, it adds the value of the new peak to the
-	 * preexisting value.  This is done so that when you have two
-	 * peaks right next to eachother (ie 1.9999 and 2.0001) that
-	 * probably should be both considered the same element, the
-	 * signal is doubled.
-	 *
-	 * @param key
-	 * @param value
-	 */
-	public void add(float location, float area)
-	{
-		int locationInt;
-
-		// If the key is positive or zero, then add 0.5 to round.
-		// Otherwise, subtract 0.5 to round.
-		if (location >= 0.0f)
-			locationInt = (int) ((float) location + 0.5);
-		else
-			locationInt = (int) ((float) location - 0.5);
-
-		add(locationInt, area);
-	}
-
 	/**
 	 * This is just like add(float, float) except that it is assumed that
 	 * rounding the peaks to the right location has been done already.
@@ -531,18 +432,6 @@ public class BinnedPeakList implements Iterable<BinnedPeak> {
 	}
 
 	/**
-	 * This skips all the checks of add().  Do not use this unless
-	 * you are copying from another list: if you add a peak where
-	 * another one is already, the first one will be lost.
-	 * @param key	The key of the peak
-	 * @param value	The value of the peak at that key.
-	 */
-	public void addNoChecks(int location, float area)
-	{
-		peaks.put(location, area);
-	}
-
-	/**
 	 * Divide the value at each peak by this amount.
 	 * @param divisor
 	 */
@@ -556,29 +445,10 @@ public class BinnedPeakList implements Iterable<BinnedPeak> {
 		}
 	}
 
-	/**
-	 * Print a representation of this peak list.
-	 */
-	public void printPeakList() {
-		System.out.println("printing peak list");
-		Iterator<BinnedPeak> i = iterator();
-		BinnedPeak p;
-		while (i.hasNext()) {
-			p = i.next();
-			System.out.println(p.getKey() + ", " + p.getValue());
-		}
-	}
-
-	/**
-	 * Find the largest value contained in the peaklist.  (not its index, the
-	 * value itself).
-	 */
-	public float getLargestArea() {
-		return Collections.max(peaks.values());
-	}
 	public SortedMap<Integer, Float> getPeaks() {
 		return peaks;
 	}
+
 	/**
 	 * Find the sum of two particles.
 	 * @param other the particle to add to this one.
@@ -588,168 +458,6 @@ public class BinnedPeakList implements Iterable<BinnedPeak> {
 		while (i.hasNext()) {
 			add(i.next());
 		}
-	}
-
-	/**
-	 * Adds a particle of a certain weight.
-	 * @param  other the binnedPeakList that you are adding
-	 * @param  factor the weight of the binnedPeakList you wish to add
-	 */
-	public void addWeightedParticle(BinnedPeakList other, int factor) {
-		Iterator<Entry<Integer, Float>> iter = other.peaks.entrySet().iterator();
-		Entry<Integer,Float> temp;
-		while (iter.hasNext()) {
-			temp = iter.next();
-			assert !(peaks.containsKey(temp.getKey())== true && peaks.get(temp.getKey())== null) : "null peak is present in list";
-			Float curArea = peaks.get(temp.getKey());
-			if(curArea != null)
-				peaks.put(temp.getKey(), curArea + temp.getValue() * factor);
-			else
-				peaks.put(temp.getKey(), temp.getValue() * factor);
-		}
-	}
-	public HashMap<Integer, Float> addWeightedToHash(HashMap<Integer, Float> hash, float factor) {
-		Iterator<Entry<Integer, Float>> iter = peaks.entrySet().iterator();
-		Entry<Integer,Float> temp;
-		while (iter.hasNext()) {
-			temp = iter.next();
-			Float value = hash.get(temp.getKey());
-			long beginTime = System.currentTimeMillis();
-			if(value!= null) {
-				hash.put(temp.getKey(), value+temp.getValue()*factor);
-			}
-			else {
-				hash.put(temp.getKey(), temp.getValue()*factor);
-			}
-		}
-		return hash;
-	}
-	public void addWeightedParticle2 (BinnedPeakList other, int factor) {
-		BinnedPeakList reduced = new BinnedPeakList(normalizable);
-
-		Entry<Integer, Float> i = null, j = null;
-		Iterator<Entry<Integer, Float>> thisIter = peaks.entrySet().iterator(),
-			thatIter = other.peaks.entrySet().iterator();
-
-		float distance = 0;
-
-		// if one of the peak lists is empty, do something about it.
-		if (thisIter.hasNext()) {
-			i = thisIter.next();
-		}
-		if (thatIter.hasNext()) {
-			j = thatIter.next();
-		}
-		// both lists have some particles, so
-		while (i != null && j != null) {
-			//if both have peaks at the next key, add the values together
-			if (i.getKey().equals(j.getKey()))
-			{
-				i.setValue(i.getValue() + j.getValue() * factor);
-				if (thisIter.hasNext())
-					i = thisIter.next();
-				else i = null;
-
-				if (thatIter.hasNext())
-					j = thatIter.next();
-				else j = null;
-			}
-			//if only i has a value at the next key, move on
-			else if (i.getKey() < j.getKey())
-			{
-				if (thisIter.hasNext())
-				{
-					i = thisIter.next();
-			//		System.out.println(i);
-				}
-				else i = null;
-			}
-			//if only j has a value at the next key, add it to i
-			else
-			{
-				reduced.addNoChecks(j.getKey(), j.getValue() * factor);
-				if (thatIter.hasNext())
-					j = thatIter.next();
-				else j = null;
-			}
-		}
-		this.peaks.putAll(reduced.peaks);
-		//if there are more j's
-		while (j != null) {
-			this.addNoChecks(j.getKey(),j.getValue() * factor);
-			if(thatIter.hasNext())
-				j = thatIter.next();
-			else j = null;
-		}
-
-	}
-	public class Node{
-		private Integer key;
-		private Float value;
-		public Node(int k, Float v){
-			key = k;
-			value = v;
-		}
-		public Integer getKey(){
-			return key;
-		}
-		public Float getValue() {
-			return value;
-		}
-	}
-	public void addWeightedParticle3 (BinnedPeakList other, int factor) {
-
-		SortedMap<Integer, Float> newPeaks = new TreeMap<Integer, Float>();
-
-		Entry<Integer, Float> i = null, j = null;
-		Iterator<Entry<Integer, Float>> thisIter = peaks.entrySet().iterator(),
-			thatIter = other.peaks.entrySet().iterator();
-
-
-		//build the two arrays
-		Node[] thisArray = new Node[this.peaks.size()];
-		Node[] thatArray = new Node[other.peaks.size()];
-		int index = 0;
-		while (thisIter.hasNext()) {
-			i = thisIter.next();
-			thisArray[index] = new Node(i.getKey(), i.getValue());
-			index++;
-		}
-		index = 0;
-		while (thatIter.hasNext()) {
-			j = thatIter.next();
-			thatArray[index] = new Node(j.getKey(), j.getValue());
-			index++;
-		}
-
-		//go across the arrays and merge them
-		int cur = 0;
-		int k = 0;
-		while (k < thisArray.length && cur<thatArray.length)
-		{
-			if(thisArray[k].getKey().equals(thatArray[cur].getKey())){
-				newPeaks.put(thisArray[k].getKey(), thisArray[k].getValue() + thatArray[cur].getValue() * factor);
-				k++;
-				cur++;
-			}
-			else if(thisArray[k].getKey() < thatArray[cur].getKey()) {
-				newPeaks.put(thisArray[k].getKey(), thisArray[k].getValue());
-				k++;
-			}
-			else {
-				newPeaks.put(thatArray[cur].getKey(), thatArray[cur].getValue() * factor);
-				cur++;
-			}
-		}
-		while(k<thisArray.length) {
-			newPeaks.put(thisArray[k].getKey(), thisArray[k].getValue());
-			k++;
-		}
-		while(cur < thatArray.length) {
-			newPeaks.put(thatArray[cur].getKey(), thatArray[cur].getValue() *factor);
-			cur++;
-		}
-		this.peaks = newPeaks;
 	}
 
 	// method to permit choice of normalization technique
@@ -793,44 +501,6 @@ public class BinnedPeakList implements Iterable<BinnedPeak> {
 	}
 
 	/**
-	 * Change the Normalizer that will be used during calls to normalize() on
-	 * this peaklist.
-	 * @param norm the new normalizer.
-	 */
-	public void setNormalizer(Normalizer norm) {
-		normalizable = norm;
-	}
-
-	public void setNormalizer(DummyNormalizer norm) {
-		normalizable = norm;
-	}
-
-	// used for testing BIRCH
-	public boolean testForMax(int max) {
-		Iterator<BinnedPeak> iterator = iterator();
-		BinnedPeak peak;
-		while (iterator.hasNext()) {
-			peak = iterator.next();
-			if (peak.getValue() > max)
-				return false;
-		}
-		return true;
-	}
-
-	/**
-	 * Multiply each value by a scalar factor.
-	 * @param factor
-	 */
-	public void multiply(float factor) {
-		Iterator<Entry<Integer, Float>> iter = peaks.entrySet().iterator();
-		Entry<Integer,Float> temp;
-		while (iter.hasNext()) {
-			temp = iter.next();
-			temp.setValue(temp.getValue() * factor);
-		}
-	}
-
-	/**
 	 * Divide each value by a scalar factor.
 	 * @param factor
 	 */
@@ -863,26 +533,12 @@ public class BinnedPeakList implements Iterable<BinnedPeak> {
 		return this;
 	}
 
-	public boolean isTransformed() {
-		return isTransformed;
-	}
-
 	/**
 	 * Return an iterator view of the binned peak list.  Note that modifying
 	 * the elements accessed by the iterator will NOT modify the peaklist itself.
 	 */
 	public Iterator<BinnedPeak> iterator() {
 		return new Iter(this);
-	}
-
-	/**
-	 * @author steinbel
-	 * Return a positive/negative iterator for the binned peak list.
-	 * @param negative - true for negative peaks only, false for non-neg. only
-	 * @return an iterator that only goes through either negative or non-neg. peaks
-	 */
-	public Iterator<BinnedPeak> posNegIterator(boolean negative){
-		return new Iter(this, negative);
 	}
 
 	/**
@@ -902,21 +558,6 @@ public class BinnedPeakList implements Iterable<BinnedPeak> {
 		 */
 		public Iter(BinnedPeakList bpl) {
 			this.entries = bpl.peaks.entrySet().iterator();
-		}
-
-		/**
-		 * @author steinbel
-		 * overloaded constructor gives us an iterator for either negative or
-		 * non-negative peaks only
-		 * @param bpl	the list through which to iterate
-		 * @param negative	true if only negative peaks desired, false for non-neg.
-		 */
-		public Iter(BinnedPeakList bpl, boolean negative){
-			BinnedPeakList sub = new BinnedPeakList();
-			for (BinnedPeak peak : bpl)
-				if( (!negative && peak.getKey() >= 0) || (negative && peak.getKey() <0) )
-					sub.add(peak);
-			this.entries = sub.peaks.entrySet().iterator();
 		}
 
 		public boolean hasNext() {
