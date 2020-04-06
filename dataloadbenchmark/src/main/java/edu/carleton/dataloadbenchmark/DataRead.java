@@ -113,6 +113,13 @@ public class DataRead {
         }
     }
 
+    /*
+    Data structure returned by this method:
+    List[Map{name, sparse, dense}]
+    name --> string
+    sparse --> List[Map{masstocharge, area, relarea, height}]
+    dense --> Map{time, laserpower, size, scatdelay, specname}
+     */
     public List readNSpectraFrom(int n, int start) {
         List particles = new ArrayList<>();
         int last = 0;
