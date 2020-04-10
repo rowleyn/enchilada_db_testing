@@ -1,5 +1,7 @@
 
-package edu.carleton.clusteringbenchmark;
+package edu.carleton.clusteringbenchmark.database;
+
+import edu.carleton.clusteringbenchmark.collection.Collection;
 
 import java.sql.Connection;
 import java.util.ArrayList;
@@ -10,35 +12,11 @@ public interface InfoWarehouse {
 
     public int getCollectionSize(int collectionID); //simple, gets the count of atoms in DB using SQL command
 
-    public CollectionCursor getRandomizedCursor(Collection collection); //calls RandomizedCursor
-
-    //public RandomizedCursor(Collection col); //Not exactly sure, but creates a cursor object using a SQL command
-
-    public BPLOnlyCursor getBPLOnlyCursor(Collection collection); //simple, just returns a new BPLOnlyCursor object on collection
-
-    // private BPLOnlyCursor(Collection coll); //Not exactly sure, but creates a cursor object using a SQL command
-
-    public CollectionCursor getMemoryClusteringCursor(Collection collection, ClusterInformation cInfo); //gets a cursor with binned peak info that fits in memory
-
-    // public MemoryClusteringCursor(Collection collection, ClusterInformation cInfo); // creates a cursor object using a SQL command
-
-    public void seedRandom(int seed); // Seeds the random number generator.
-
     public int createEmptyCollection( String datatype,
                                       int parent,
                                       String name,
                                       String comment,
                                       String description); // simple, creates a new empty collection in the db
-
-    public void atomBatchInit(); // sets up a SQL Statement object for batch add/move
-
-    public boolean addAtomBatch(int atomID, int parentID); // adds an atom creation to the batch Statement
-
-    public boolean deleteAtomBatch(int atomID, Collection collection); // adds an atom deletion to the batch Statement
-
-    public boolean deleteAtomsBatch(String atomIDs, Collection collection); // adds multiple atom deletions from the batch Statement
-
-    public void atomBatchExecute(); // executes the batch Statement
 
     public void bulkInsertInit() throws Exception; // initalizes a bulk insert using temporary files
 
@@ -63,7 +41,7 @@ public interface InfoWarehouse {
     public boolean setCollectionDescription(Collection collection,
                                             String description); // simple, updates a collection's description
 
-    public void updateInternalAtomOrder(Collection collection); // this is some kind of relational bookkeeping method, not sure exactly what it's doing
+    public String getCollectionName(int collectionID);
 
-    public void updateAncestors(Collection collection); // same kind of thing, relational bookkeeping. Again not sure exactly what it does
+    public String dbname(); // returns a string naming the database system implementing this interface
 }

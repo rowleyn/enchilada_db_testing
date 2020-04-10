@@ -1,4 +1,6 @@
-package edu.carleton.clusteringbenchmark;
+package edu.carleton.clusteringbenchmark.database;
+
+import edu.carleton.clusteringbenchmark.ATOFMS.ParticleInfo;
 
 public interface CollectionCursor {
     /*
