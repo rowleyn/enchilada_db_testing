@@ -24,7 +24,7 @@ public interface InfoWarehouse {
 
     public void bulkInsertExecute() throws Exception; // executes a bulk insert, reading from temp files
 
-    public Connection getCon(); // gets a connection to the SQL db, will need to change as this is SQL-specific
+    public void bulkDelete() throws Exception; // not from enchilada, this is meant to replace the putInSubCollectionBulkExecute method in CollectionDivider so that it doesn't contain SQL
 
     public CollectionCursor getAtomInfoOnlyCursor(Collection collection); // simple, just returns a new AtomInfoOnlyCursor object on collection
 
