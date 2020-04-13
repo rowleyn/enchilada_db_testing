@@ -4,13 +4,9 @@ import com.datastax.driver.core.*;
 
 import static java.lang.System.out;
 import com.datastax.driver.core.Cluster;
-import com.mongodb.MongoException;
 import org.apache.cassandra.exceptions.CassandraException;
-import org.bson.Document;
 
-import java.lang.reflect.Array;
 import java.util.*;
-//from cassandra.cluster import Cluster;
 
 public class CassandraBenchmark implements DatabaseLoad {
     public void clear(){
@@ -73,7 +69,16 @@ public class CassandraBenchmark implements DatabaseLoad {
 
             session.execute("CREATE TABLE particles.dense (name varchar, dbdatasetname varchar, time int, laserpower decimal," +
                                     " size decimal, scatdelay int, specname varchar, PRIMARY KEY (name))");
-            session.execute("CREATE TABlE particles.sparse (name varchar, dbdatasetname varchar, sparse list<frozen<list<text>>>, PRIMARY KEY (name))");
+
+            session.execute("CREATE TABlE particles.sparse (name varchar, dbdatasetname varchar, area int, relarea decimal," +
+                    "masstocharge double, height double, PRIMARY KEY (name, masstocharge))");
+
+                   /**
+                    "WITH compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy',\n" +
+                    "  'tombstone_compaction_interval': '60',\n" +
+                    "  'tombstone_threshold': '.2',\n" +
+                    "  'unchecked_tombstone_compaction': 'true'}");
+                    **/
             boolean moretoread = true;
             int setindex = 0;
 
@@ -87,26 +92,24 @@ public class CassandraBenchmark implements DatabaseLoad {
                     if(((Map)data.get(i)).get("name") == null){ break;}
                     List<Map> sparse = (List<Map>)((Map)data.get(i)).get("sparse");
                     Map<String, Integer> dense = (Map)((Map)data.get(i)).get("dense");
-
+                    //System.out.println("hello");
                     Date time = (Date)((Map)((Map)data.get(i)).get("dense")).get("time");
                     Float laserpower= (Float)((Map)((Map)data.get(i)).get("dense")).get("laserpower");
                     Float size = (Float) ((Map)((Map)data.get(i)).get("dense")).get("size");
                     int scatdelay = (int) ((Map)((Map)data.get(i)).get("dense")).get("scatdelay");
                     String specname = (String) ((Map)((Map)data.get(i)).get("dense")).get("specname");
-                    session.execute("INSERT INTO particles.dense (name, dbdatasetname, time, laserpower, size, scatdelay, specname) Values (?, ?, ?, ?, ?, ?, ?)",
+                    session.executeAsync("INSERT INTO particles.dense (name, dbdatasetname, time, laserpower, size, scatdelay, specname) Values (?, ?, ?, ?, ?, ?, ?)",
                             ((Map)data.get(i)).get("name"), dbdatasetname, LocalDate.fromMillisSinceEpoch(time.getTime()), laserpower, size, scatdelay, specname);
-                    List<List> allPeaks = new ArrayList<>();
-                    for(int j = 0; j <sparse.size(); j++){
-                        Map cur = sparse.get(j);
-                        List<String> peak = new ArrayList<>();
-                        peak.add(sparse.get(j).get("area").toString());
-                        peak.add(sparse.get(j).get("relarea").toString());
-                        peak.add( sparse.get(j).get("masstocharge").toString());
-                        peak.add(sparse.get(j).get("height").toString());
-                        allPeaks.add(peak);
-                    }
-                    session.execute("INSERT INTO particles.sparse (name, dbdatasetname, sparse) Values (?, ?, ?)",  ((Map)data.get(i)).get("name"), dbdatasetname, allPeaks);
 
+                    for(int j = 0; j <sparse.size(); j++){
+                        int area = (int) sparse.get(j).get("area");
+                        Float relarea = (Float) sparse.get(j).get("relarea");
+                        Double masstocharge = (Double) sparse.get(j).get("masstocharge");
+                        Double height = (Double) sparse.get(j).get("masstocharge");
+                        session.executeAsync("INSERT INTO particles.sparse (name, dbdatasetname, area, relarea, masstocharge, height) Values (?, ?, ?, ?, ?, ?)",
+                               ((Map)data.get(i)).get("name"), dbdatasetname, area, relarea, masstocharge, height);
+                        System.out.println(masstocharge);
+                    }
                 }
 
                 if (setindex >= reader.set.size()) {
@@ -115,9 +118,9 @@ public class CassandraBenchmark implements DatabaseLoad {
             }
 
             Row row = rs.one();
-            out.println(row.getString("release_version"));
+            System.out.println(row.getString("release_version"));
 
-            ResultSet rss = session.execute("SELECT * FROM particles.sparse");
+            ResultSet rss = session.execute("SELECT height FROM particles.sparse LIMIT 1");
 
             System.out.println(rss.all());
 
