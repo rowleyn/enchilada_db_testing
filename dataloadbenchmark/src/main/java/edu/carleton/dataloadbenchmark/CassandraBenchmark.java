@@ -19,8 +19,6 @@ public class CassandraBenchmark implements DatabaseLoad {
             Session session = cluster.connect();
             String drop = "DROP TABLE IF EXISTS pars.par";
             session.execute(drop);
-            drop = "DROP TABLE IF EXISTS particles.particle";
-            session.execute(drop);
             drop = "DROP TABLE IF EXISTS particles.dense";
             session.execute(drop);
             drop = "DROP TABLE IF EXISTS particles.sparse";
@@ -60,8 +58,6 @@ public class CassandraBenchmark implements DatabaseLoad {
                     "CREATE KEYSPACE IF NOT EXISTS particles WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3};";
             session.execute(createKeySpace);
 
-            //session.execute("DROP TYPE IF EXISTS particles.data");
-            //session.execute("CREATE TYPE particles.data (data map<text,int>)");
 
             String createParticleCql =
                     " CREATE TABLE particles.particle (name varchar, dbdatasetname varchar, sparse list<frozen<map<text, int>>>, dense list<text>, PRIMARY KEY (name))";
@@ -73,12 +69,6 @@ public class CassandraBenchmark implements DatabaseLoad {
             session.execute("CREATE TABlE particles.sparse (name varchar, dbdatasetname varchar, area int, relarea decimal," +
                     "masstocharge double, height double, PRIMARY KEY (name, masstocharge))");
 
-                   /**
-                    "WITH compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy',\n" +
-                    "  'tombstone_compaction_interval': '60',\n" +
-                    "  'tombstone_threshold': '.2',\n" +
-                    "  'unchecked_tombstone_compaction': 'true'}");
-                    **/
             boolean moretoread = true;
             int setindex = 0;
 
@@ -86,13 +76,11 @@ public class CassandraBenchmark implements DatabaseLoad {
             while(moretoread) {
                 List data = reader.readNSpectraFrom(1, setindex);
                 setindex = (int)data.get(data.size() - 1);
-               //List<Document> spectra = new ArrayList<>();
-                //System.out.println(data.size());
+
                 for (int i = 0; i < data.size() - 1; i++) {
                     if(((Map)data.get(i)).get("name") == null){ break;}
                     List<Map> sparse = (List<Map>)((Map)data.get(i)).get("sparse");
                     Map<String, Integer> dense = (Map)((Map)data.get(i)).get("dense");
-                    //System.out.println("hello");
                     Date time = (Date)((Map)((Map)data.get(i)).get("dense")).get("time");
                     Float laserpower= (Float)((Map)((Map)data.get(i)).get("dense")).get("laserpower");
                     Float size = (Float) ((Map)((Map)data.get(i)).get("dense")).get("size");
@@ -108,7 +96,6 @@ public class CassandraBenchmark implements DatabaseLoad {
                         Double height = (Double) sparse.get(j).get("masstocharge");
                         session.executeAsync("INSERT INTO particles.sparse (name, dbdatasetname, area, relarea, masstocharge, height) Values (?, ?, ?, ?, ?, ?)",
                                ((Map)data.get(i)).get("name"), dbdatasetname, area, relarea, masstocharge, height);
-                        System.out.println(masstocharge);
                     }
                 }
 
@@ -117,12 +104,12 @@ public class CassandraBenchmark implements DatabaseLoad {
                 }
             }
 
-            Row row = rs.one();
-            System.out.println(row.getString("release_version"));
+            //Row row = rs.one();
+            //System.out.println(row.getString("release_version"));
 
-            ResultSet rss = session.execute("SELECT height FROM particles.sparse LIMIT 1");
+            //ResultSet rss = session.execute("SELECT height FROM particles.sparse LIMIT 1");
 
-            System.out.println(rss.all());
+            //System.out.println(rss.all());
 
         } catch (CassandraException ce) {
             if (cluster != null) cluster.close();
