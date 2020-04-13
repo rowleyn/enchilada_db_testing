@@ -15,6 +15,9 @@ import org.bson.Document;
 
 import edu.carleton.clusteringbenchmark.collection.Collection;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class MongoWarehouse implements InfoWarehouse {
 
     MongoClient client;
@@ -68,7 +71,12 @@ public class MongoWarehouse implements InfoWarehouse {
         }
         int nextid = maxid + 1;
 
-        collectiondoc.append(String.valueOf(nextid), name);
+        Map collectioninfo = new HashMap();
+        collectioninfo.put("name", name);
+        collectioninfo.put("parent", parent);
+        collectioninfo.put("comment", comment);
+        collectioninfo.put("description", description);
+        collectiondoc.append(String.valueOf(nextid), collectioninfo);
         collections.updateOne(new Document(), collectiondoc);
 
         return nextid;

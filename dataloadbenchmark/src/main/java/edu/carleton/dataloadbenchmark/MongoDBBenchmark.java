@@ -17,9 +17,17 @@ public class MongoDBBenchmark implements DatabaseLoad {
     public void clear() {
         MongoClient mongoClient = MongoClients.create();
         MongoDatabase database = mongoClient.getDatabase("enchilada_benchmark");
+        MongoCollection<Document> collections = database.getCollection("collections");
         MongoCollection<Document> pars = database.getCollection("pars");
 
+        Document par = pars.find().first();
+        MongoCollection<Document> particles = database.getCollection(par.get("datasetname") + "_particles");
+        MongoCollection<Document> clusters = database.getCollection(par.get("datasetname") + "_clusters");
+
+        collections.drop();
         pars.drop();
+        particles.drop();
+        clusters.drop();
     }
 
     public boolean insert(DataRead reader) {
@@ -32,9 +40,8 @@ public class MongoDBBenchmark implements DatabaseLoad {
 
         Map par = new HashMap();
 
-        String dbdatasetname = (String)reader.par.get("dbdatasetname");
-        par.put("_id", dbdatasetname);
-        par.put("datasetname", reader.par.get("datasetname"));
+        par.put("_id", 0);
+        par.put("datasetname", reader.par.get("dbdatasetname"));
         par.put("starttime", reader.par.get("starttime"));
         par.put("startdate", reader.par.get("startdate"));
         par.put("inlettype", reader.par.get("inlettype"));
@@ -53,11 +60,8 @@ public class MongoDBBenchmark implements DatabaseLoad {
             return false;
         }
 
-        //List<Document> spectra = new ArrayList<>();
-
-        String particleCollectionName = dbdatasetname + "_particles";
+        String particleCollectionName = reader.par.get("dbdatasetname") + "_particles";
         MongoCollection<Document> particles = database.getCollection(particleCollectionName);
-        particles.drop();
 
         boolean moretoread = true;
         int setindex = 0;
@@ -88,6 +92,13 @@ public class MongoDBBenchmark implements DatabaseLoad {
                 moretoread = false;
             }
         }
+
+        MongoCollection<Document> collections = database.getCollection("collections");
+        Document collectionlist = new Document();
+        Map collectioninfo = new HashMap();
+        collectioninfo.put("name", particleCollectionName);
+        collectionlist.append("0", collectioninfo);
+        collections.insertOne(collectionlist);
 
         mongoClient.close();
 
