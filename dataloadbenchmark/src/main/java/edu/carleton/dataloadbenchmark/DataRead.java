@@ -115,7 +115,7 @@ public class DataRead {
 
     /*
     Data structure returned by this method:
-    List[Map{name, sparse, dense}]
+    List[Map{name, sparse, dense}] Last item is set index
     name --> string
     sparse --> List[Map{masstocharge, area, relarea, height}]
     dense --> Map{time, laserpower, size, scatdelay, specname}

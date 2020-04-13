@@ -18,10 +18,8 @@ public class MongoDBBenchmark implements DatabaseLoad {
         MongoClient mongoClient = MongoClients.create();
         MongoDatabase database = mongoClient.getDatabase("enchilada_benchmark");
         MongoCollection<Document> pars = database.getCollection("pars");
-        MongoCollection<Document> particles = database.getCollection("particles");
 
         pars.drop();
-        particles.drop();
     }
 
     public boolean insert(DataRead reader) {
@@ -31,7 +29,6 @@ public class MongoDBBenchmark implements DatabaseLoad {
         MongoClient mongoClient = MongoClients.create();
         MongoDatabase database = mongoClient.getDatabase("enchilada_benchmark");
         MongoCollection<Document> pars = database.getCollection("pars");
-        MongoCollection<Document> particles = database.getCollection("particles");
 
         Map par = new HashMap();
 
@@ -57,25 +54,27 @@ public class MongoDBBenchmark implements DatabaseLoad {
         }
 
         //List<Document> spectra = new ArrayList<>();
+
+        String particleCollectionName = dbdatasetname + "_particles";
+        MongoCollection<Document> particles = database.getCollection(particleCollectionName);
+        particles.drop();
+
         boolean moretoread = true;
         int setindex = 0;
 
         while (moretoread) {
             List data = reader.readNSpectraFrom(1, setindex);
-            setindex = (int)data.get(data.size() - 1);
-            List<Document> spectra = new ArrayList<>();
+            setindex = (int)data.get(1);
+            Document spectrum;
 
-            for (int i = 0; i < data.size() - 1; i++) {
-                Map spectrum = new HashMap();
-                spectrum.put("_id", ((Map)data.get(i)).get("name"));
-                spectrum.put("par_id", dbdatasetname);
-                spectrum.put("sparsedata", ((Map)data.get(i)).get("sparse"));
-                spectrum.put("densedata", ((Map)data.get(i)).get("dense"));
-                spectra.add(new Document(spectrum));
-            }
+            Map spectrumdata = new HashMap();
+            spectrumdata.put("_id", ((Map)data.get(0)).get("name"));
+            spectrumdata.put("sparsedata", ((Map)data.get(0)).get("sparse"));
+            spectrumdata.put("densedata", ((Map)data.get(0)).get("dense"));
+            spectrum = new Document(spectrumdata);
 
             try {
-                particles.insertOne(spectra.get(0));
+                particles.insertOne(spectrum);
             }
             catch (MongoException e) {
                 System.out.println("Something went wrong...");

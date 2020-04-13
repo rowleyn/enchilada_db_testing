@@ -307,7 +307,8 @@ public abstract class Cluster extends CollectionDivider {
 					temp.numMembers++;
 				}
 			}// end with no particle remaining
-			putInSubCollectionBulkExecute();
+			db.bulkInsertExecute();
+			db.bulkDelete();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
