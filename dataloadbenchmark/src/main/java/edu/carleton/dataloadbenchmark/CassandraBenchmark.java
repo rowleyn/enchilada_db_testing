@@ -97,6 +97,7 @@ public class CassandraBenchmark implements DatabaseLoad {
                         Double height = (Double) sparse.get(j).get("masstocharge");
                         session.executeAsync("INSERT INTO particles.sparse (name, dbdatasetname, area, relarea, masstocharge, height) Values (?, ?, ?, ?, ?, ?)",
                                ((Map)data.get(i)).get("name"), dbdatasetname, area, relarea, masstocharge, height);
+                        System.out.println(masstocharge);
                     }
                 }
 
