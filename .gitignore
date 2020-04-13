@@ -1,3 +1,7 @@
 .idea
+enchilada_db_testing.iml
 mongodb/target/
 dataloadbenchmark/target/
+dataloadbenchmark/dataloadbenchmark.iml
+clusteringbenchmark/target/
+clusteringbenchmark/clusteringbenchmark.iml
