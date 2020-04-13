@@ -66,6 +66,7 @@ public class CassandraBenchmark implements DatabaseLoad {
             session.execute("CREATE TABLE particles.dense (name varchar, dbdatasetname varchar, time int, laserpower decimal," +
                                     " size decimal, scatdelay int, specname varchar, PRIMARY KEY (name))");
 
+            //Assuming masstocharge represents location
             session.execute("CREATE TABlE particles.sparse (name varchar, dbdatasetname varchar, area int, relarea decimal," +
                     "masstocharge double, height double, PRIMARY KEY (name, masstocharge))");
 
