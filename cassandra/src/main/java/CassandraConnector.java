@@ -54,7 +54,8 @@ public class CassandraConnector
         final int port = args.length > 1 ? Integer.parseInt(args[1]) : 9042;
         out.println("Connecting to IP Address " + ipAddress + ":" + port + "...");
         client.connect(ipAddress, port);
-
+        final String drop = "DROP keyspace movies_keyspace";
+        client.getSession().execute(drop);
         final String createKeySpace =
                 "CREATE KEYSPACE IF NOT EXISTS movies_keyspace WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3};";
         client.getSession().execute(createKeySpace);
@@ -69,7 +70,6 @@ public class CassandraConnector
         final ResultSet movieResults = client.getSession().execute(
                 "SELECT * from movies_keyspace.movies WHERE title = ? AND year = ?", "title", 1997);
         System.out.println(movieResults);
-        System.out.println("HELLO KELSEY");
         client.close();
     }
 
