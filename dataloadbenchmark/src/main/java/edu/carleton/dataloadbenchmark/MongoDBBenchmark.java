@@ -70,7 +70,7 @@ public class MongoDBBenchmark implements DatabaseLoad {
 
         while (moretoread) {
             List data = reader.readNSpectraFrom(1, setindex);
-            setindex = (int)data.get(1);
+            setindex = (int)data.get(data.size()-1);
             Document spectrum;
 
             Map spectrumdata = new HashMap();
