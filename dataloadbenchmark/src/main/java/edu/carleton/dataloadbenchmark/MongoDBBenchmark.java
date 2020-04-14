@@ -21,13 +21,15 @@ public class MongoDBBenchmark implements DatabaseLoad {
         MongoCollection<Document> pars = database.getCollection("pars");
 
         Document par = pars.find().first();
-        MongoCollection<Document> particles = database.getCollection(par.get("datasetname") + "_particles");
-        MongoCollection<Document> clusters = database.getCollection(par.get("datasetname") + "_clusters");
+        if (par != null) {
+            MongoCollection<Document> particles = database.getCollection(par.get("datasetname") + "_particles");
+            MongoCollection<Document> clusters = database.getCollection(par.get("datasetname") + "_clusters");
+            particles.drop();
+            clusters.drop();
+        }
 
         collections.drop();
         pars.drop();
-        particles.drop();
-        clusters.drop();
     }
 
     public boolean insert(DataRead reader) {
