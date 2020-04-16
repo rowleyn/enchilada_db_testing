@@ -6,6 +6,8 @@ import static java.lang.System.out;
 import com.datastax.driver.core.Cluster;
 import org.apache.cassandra.exceptions.CassandraException;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.*;
 
 public class CassandraBenchmark implements DatabaseLoad {
@@ -14,15 +16,21 @@ public class CassandraBenchmark implements DatabaseLoad {
         try {
             cluster = Cluster.builder()
                     .addContactPoint("127.0.0.1")
+                    .withProtocolVersion(ProtocolVersion.V3)
+                    //.addContactPoints(InetAddress.getLocalHost())
                     .withoutJMXReporting()
                     .build();
             Session session = cluster.connect();
             String drop = "DROP TABLE IF EXISTS pars.par";
             session.execute(drop);
+            drop = "DROP TABLE IF EXISTS particles.collections";
+            session.execute(drop);
             drop = "DROP TABLE IF EXISTS particles.dense";
             session.execute(drop);
             drop = "DROP TABLE IF EXISTS particles.sparse";
             session.execute(drop);
+        //} catch (UnknownHostException e) {
+          //  e.printStackTrace();
         } finally {
             if (cluster != null) cluster.close();
         }
@@ -50,6 +58,7 @@ public class CassandraBenchmark implements DatabaseLoad {
             session.execute(createParCql);
 
             Object dbdatasetname = reader.par.get("dbdatasetname");
+
             session.execute(
                     "INSERT INTO pars.par (dbdatasetname, datasetname, starttime, startdate, inlettype, comment) VALUES (?, ?, ?, ?, ?, ?)",
                     dbdatasetname, reader.par.get("datasetname"), reader.par.get("starttime"),
@@ -59,9 +68,9 @@ public class CassandraBenchmark implements DatabaseLoad {
             session.execute(createKeySpace);
 
 
-            String createParticleCql =
-                    " CREATE TABLE particles.particle (name varchar, dbdatasetname varchar, sparse list<frozen<map<text, int>>>, dense list<text>, PRIMARY KEY (name))";
-            session.execute(createParticleCql);
+           // String createParticleCql =
+            //        " CREATE TABLE particles.particle (name varchar, dbdatasetname varchar, sparse list<frozen<map<text, int>>>, dense list<text>, PRIMARY KEY (name))";
+            //session.execute(createParticleCql);
 
             session.execute("CREATE TABLE particles.dense (name varchar, dbdatasetname varchar, time int, laserpower decimal," +
                                     " size decimal, scatdelay int, specname varchar, PRIMARY KEY (name))");
@@ -70,9 +79,11 @@ public class CassandraBenchmark implements DatabaseLoad {
             session.execute("CREATE TABlE particles.sparse (name varchar, dbdatasetname varchar, area int, relarea decimal," +
                     "masstocharge double, height double, PRIMARY KEY (name, masstocharge))");
 
+            session.execute("CREATE TABLE particles.collections (collectionID varchar, PRIMARY KEY (collectionID))");
+
+
             boolean moretoread = true;
             int setindex = 0;
-
 
             while(moretoread) {
                 List data = reader.readNSpectraFrom(1, setindex);
@@ -89,7 +100,7 @@ public class CassandraBenchmark implements DatabaseLoad {
                     String specname = (String) ((Map)((Map)data.get(i)).get("dense")).get("specname");
                     session.executeAsync("INSERT INTO particles.dense (name, dbdatasetname, time, laserpower, size, scatdelay, specname) Values (?, ?, ?, ?, ?, ?, ?)",
                             ((Map)data.get(i)).get("name"), dbdatasetname, LocalDate.fromMillisSinceEpoch(time.getTime()), laserpower, size, scatdelay, specname);
-
+                    /**
                     for(int j = 0; j <sparse.size(); j++){
                         int area = (int) sparse.get(j).get("area");
                         Float relarea = (Float) sparse.get(j).get("relarea");
@@ -98,20 +109,25 @@ public class CassandraBenchmark implements DatabaseLoad {
                         session.executeAsync("INSERT INTO particles.sparse (name, dbdatasetname, area, relarea, masstocharge, height) Values (?, ?, ?, ?, ?, ?)",
                                ((Map)data.get(i)).get("name"), dbdatasetname, area, relarea, masstocharge, height);
                         System.out.println(masstocharge);
-                    }
+                    }**/
+
                 }
 
                 if (setindex >= reader.set.size()) {
                     moretoread = false;
                 }
             }
+            //Adds this dataset to list of collections
+            String particleCollectionName = reader.par.get("dbdatasetname") + "_particles";
+            session.executeAsync("INSERT INTO particles.collections (collectionID) Values(?)", particleCollectionName);
 
-            //Row row = rs.one();
-            //System.out.println(row.getString("release_version"));
 
-            //ResultSet rss = session.execute("SELECT height FROM particles.sparse LIMIT 1");
+            Row row = rs.one();
+            System.out.println(row.getString("release_version"));
 
-            //System.out.println(rss.all());
+            ResultSet rss = session.execute("SELECT collectionID FROM particles.collections");
+
+            System.out.println(rss.all());
 
         } catch (CassandraException ce) {
             if (cluster != null) cluster.close();
