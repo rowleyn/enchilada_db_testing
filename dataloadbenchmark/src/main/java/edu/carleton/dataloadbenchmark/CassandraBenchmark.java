@@ -100,7 +100,7 @@ public class CassandraBenchmark implements DatabaseLoad {
                     String specname = (String) ((Map)((Map)data.get(i)).get("dense")).get("specname");
                     session.executeAsync("INSERT INTO particles.dense (name, dbdatasetname, time, laserpower, size, scatdelay, specname) Values (?, ?, ?, ?, ?, ?, ?)",
                             ((Map)data.get(i)).get("name"), dbdatasetname, LocalDate.fromMillisSinceEpoch(time.getTime()), laserpower, size, scatdelay, specname);
-                    /**
+
                     for(int j = 0; j <sparse.size(); j++){
                         int area = (int) sparse.get(j).get("area");
                         Float relarea = (Float) sparse.get(j).get("relarea");
@@ -109,7 +109,7 @@ public class CassandraBenchmark implements DatabaseLoad {
                         session.executeAsync("INSERT INTO particles.sparse (name, dbdatasetname, area, relarea, masstocharge, height) Values (?, ?, ?, ?, ?, ?)",
                                ((Map)data.get(i)).get("name"), dbdatasetname, area, relarea, masstocharge, height);
                         System.out.println(masstocharge);
-                    }**/
+                    }
 
                 }
 
@@ -125,7 +125,10 @@ public class CassandraBenchmark implements DatabaseLoad {
             Row row = rs.one();
             System.out.println(row.getString("release_version"));
 
-            ResultSet rss = session.execute("SELECT collectionID FROM particles.collections");
+            String id = particleCollectionName;
+
+            ResultSet rss = session.execute("SELECT * FROM particles.collections WHERE collectionID = \'" + id+"\'");
+                    //session.execute("SELECT collectionID FROM particles.collections");
 
             System.out.println(rss.all());
 
