@@ -22,9 +22,13 @@ public class DataLoadBenchmark {
         BufferedWriter writer = new BufferedWriter(new FileWriter("results.txt"));
 
         // Instantiate database inserters here and add them to list
-        DatabaseLoad mongo = new MongoDBBenchmark();
+        //DatabaseLoad mongo = new MongoDBBenchmark();
+        DatabaseLoad sql = new SQLBenchmark();
+        DatabaseLoad postgres = new PostgreSQLBenchmark();
 
-        dbs.add(mongo);
+        //dbs.add(mongo);
+        //dbs.add(sql);
+        dbs.add(postgres);
 
         // Perform benchmarks
         for (DatabaseLoad db : dbs) {

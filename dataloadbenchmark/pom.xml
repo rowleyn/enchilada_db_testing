@@ -41,6 +41,12 @@
       <artifactId>bson</artifactId>
       <version>3.12.1</version>
     </dependency>
+    <!-- https://mvnrepository.com/artifact/net.sourceforge.jtds/jtds -->
+    <dependency>
+      <groupId>net.sourceforge.jtds</groupId>
+      <artifactId>jtds</artifactId>
+      <version>1.3.1</version>
+    </dependency>
   </dependencies>
 
   <build>
