@@ -17,7 +17,9 @@ public class MongoDBBenchmark implements DatabaseLoad {
     public void clear() {
         MongoClient mongoClient = MongoClients.create();
         MongoDatabase database = mongoClient.getDatabase("enchilada_benchmark");
+        MongoCollection<Document> metadata = database.getCollection("metadata");
         MongoCollection<Document> collections = database.getCollection("collections");
+        MongoCollection<Document> atoms = database.getCollection("atoms");
         MongoCollection<Document> pars = database.getCollection("pars");
 
         Document par = pars.find().first();
@@ -28,7 +30,9 @@ public class MongoDBBenchmark implements DatabaseLoad {
             clusters.drop();
         }
 
+        metadata.drop();
         collections.drop();
+        atoms.drop();
         pars.drop();
     }
 
@@ -38,9 +42,34 @@ public class MongoDBBenchmark implements DatabaseLoad {
 
         MongoClient mongoClient = MongoClients.create();
         MongoDatabase database = mongoClient.getDatabase("enchilada_benchmark");
+
+        // build metadata document
+        MongoCollection<Document> metadata = database.getCollection("metadata");
+        // dense metadata
+        Document densemdata = new Document();
+        densemdata.put("time", "DATETIME");
+        densemdata.put("laserpower", "REAL");
+        densemdata.put("size", "REAL");
+        densemdata.put("scatdelay", "INT");
+        densemdata.put("specname", "VARCHAR(8000)");
+        // sparse metadata
+        Document sparsemdata = new Document();
+        sparsemdata.put("masstocharge", "REAL");
+        sparsemdata.put("area", "INT");
+        sparsemdata.put("relarea", "REAL");
+        sparsemdata.put("height", "INT");
+        // both are a kind of ATOFMS metadata
+        Document atofmsdata = new Document();
+        atofmsdata.put("dense", densemdata);
+        atofmsdata.put("sparse", sparsemdata);
+        Document mdata = new Document();
+        mdata.put("ATOFMS", atofmsdata);
+        metadata.insertOne(mdata);
+
+        // build par document
         MongoCollection<Document> pars = database.getCollection("pars");
 
-        Map par = new HashMap();
+        Document par = new Document();
 
         par.put("_id", 0);
         par.put("datasetname", reader.par.get("dbdatasetname"));
@@ -49,10 +78,8 @@ public class MongoDBBenchmark implements DatabaseLoad {
         par.put("inlettype", reader.par.get("inlettype"));
         par.put("comment", reader.par.get("comment"));
 
-        Document pardoc = new Document(par);
-
         try {
-            pars.insertOne(pardoc);
+            pars.insertOne(par);
         }
         catch (MongoException e) {
             System.out.println("Something went wrong...");
@@ -62,25 +89,32 @@ public class MongoDBBenchmark implements DatabaseLoad {
             return false;
         }
 
+        // build particle collection
         String particleCollectionName = reader.par.get("dbdatasetname") + "_particles";
         MongoCollection<Document> particles = database.getCollection(particleCollectionName);
+        MongoCollection<Document> atoms = database.getCollection("atoms");
 
         boolean moretoread = true;
         int setindex = 0;
+        int atomidcount = 0;
 
         while (moretoread) {
             List data = reader.readNSpectraFrom(1, setindex);
             setindex = (int)data.get(data.size()-1);
-            Document spectrum;
 
-            Map spectrumdata = new HashMap();
+            Document spectrumdata = new Document();
             spectrumdata.put("_id", ((Map)data.get(0)).get("name"));
             spectrumdata.put("sparsedata", ((Map)data.get(0)).get("sparse"));
             spectrumdata.put("densedata", ((Map)data.get(0)).get("dense"));
-            spectrum = new Document(spectrumdata);
+
+            Document atom = new Document();
+            atom.put("_id", atomidcount);
+            atom.put("name", ((Map)data.get(0)).get("name"));
+            atomidcount++;
 
             try {
-                particles.insertOne(spectrum);
+                particles.insertOne(spectrumdata);
+                atoms.insertOne(atom);
             }
             catch (MongoException e) {
                 System.out.println("Something went wrong...");
@@ -95,12 +129,13 @@ public class MongoDBBenchmark implements DatabaseLoad {
             }
         }
 
+        // build collection map
         MongoCollection<Document> collections = database.getCollection("collections");
-        Document collectionlist = new Document();
-        Map collectioninfo = new HashMap();
+        Document collectioninfo = new Document();
+        collectioninfo.put("_id", 0);
         collectioninfo.put("name", particleCollectionName);
-        collectionlist.append("0", collectioninfo);
-        collections.insertOne(collectionlist);
+        collectioninfo.put("datatype", "ATOFMS");
+        collections.insertOne(collectioninfo);
 
         mongoClient.close();
 

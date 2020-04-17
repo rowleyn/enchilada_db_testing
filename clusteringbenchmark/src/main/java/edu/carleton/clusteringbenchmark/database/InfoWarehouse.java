@@ -28,7 +28,7 @@ public interface InfoWarehouse {
 
     public CollectionCursor getAtomInfoOnlyCursor(Collection collection); // simple, just returns a new AtomInfoOnlyCursor object on collection
 
-    public String getCollectionDatatype(int subCollectionNum); // simple, just gets the datatype (ATOFMS, AMs, etc.) of a collection
+    public String getCollectionDatatype(int collectionId); // simple, just gets the datatype (ATOFMS, AMs, etc.) of a collection
 
     public ArrayList<ArrayList<String>> getColNamesAndTypes(String datatype, DynamicTable table); // gets the names of columns for a given datatype, this is metadata
 
@@ -41,7 +41,7 @@ public interface InfoWarehouse {
     public boolean setCollectionDescription(Collection collection,
                                             String description); // simple, updates a collection's description
 
-    public String getCollectionName(int collectionID);
+    public String getCollectionName(int collectionID); // simple, gets the name of a collection
 
     public String dbname(); // returns a string naming the database system implementing this interface
 }
