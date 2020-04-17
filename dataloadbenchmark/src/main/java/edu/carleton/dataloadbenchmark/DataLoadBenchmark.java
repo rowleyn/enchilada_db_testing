@@ -26,9 +26,11 @@ public class DataLoadBenchmark {
         DatabaseLoad sql = new SQLBenchmark();
         DatabaseLoad postgres = new PostgreSQLBenchmark();
 
+
+        DatabaseLoad cassandra = new CassandraBenchmark();
+
         //dbs.add(mongo);
-        //dbs.add(sql);
-        dbs.add(postgres);
+        dbs.add(cassandra);
 
         // Perform benchmarks
         for (DatabaseLoad db : dbs) {
