@@ -3,6 +3,7 @@ package edu.carleton.clusteringbenchmark.database;
 import com.datastax.driver.core.*;
 
 import edu.carleton.clusteringbenchmark.collection.Collection;
+import edu.carleton.clusteringbenchmark.errorframework.ErrorLogger;
 
 import java.util.ArrayList;
 
@@ -22,6 +23,7 @@ public class CassandraWarehouse implements InfoWarehouse {
         if(rss != null){
             return new Collection("ATOFMS", collectionID, this);
         }
+        ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Error retrieving collection for collectionID "+collectionID);
         System.out.println("Error");
         return null;
 
@@ -30,6 +32,15 @@ public class CassandraWarehouse implements InfoWarehouse {
 
     @Override
     public int getCollectionSize(int collectionID) {
+        String id = String.valueOf(collectionID);
+        ResultSet rss = session.execute("SELECT * FROM particles.collections WHERE collectionID = \'" + id+"\'");
+        if(rss != null){
+            rss = session.execute("Select Count(collectionId) from particles.collections where collectionID =\'" + id+"\'");
+            Number val = (Number) rss;
+            return (int) val;
+        }
+        ErrorLogger.writeExceptionToLogAndPrompt(dbname(),"Error retrieving the collection size for collectionID "+collectionID);
+        System.out.println("Error");
         return 0;
     }
 
