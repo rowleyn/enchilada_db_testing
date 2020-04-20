@@ -1,7 +1,6 @@
 package edu.carleton.dataloadbenchmark;
 
 
-import com.mongodb.MongoException;
 import org.influxdb.BatchOptions;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBException;
@@ -101,9 +100,7 @@ public class InfluxDBBenchmark implements DatabaseLoad {
     // clear out data prior to starting benchmark
     public void clear(){
         InfluxDB influxDB = InfluxDBFactory.connect("http://localhost:8086", "influxdbUser", "influxdbPsw");
-        influxDB.setDatabase("enchilada_benchmark");
-        influxDB.query(new Query("DROP SERIES FROM pars"));
-        influxDB.query(new Query("DROP SERIES FROM particles"));
+        influxDB.query(new Query("DROP DATABASE enchilada_benchmark"));
     }
 
     // returns a string that identifies the database and schema
