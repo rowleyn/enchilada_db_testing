@@ -6,6 +6,7 @@ import static java.lang.System.out;
 import com.datastax.driver.core.Cluster;
 import org.apache.cassandra.exceptions.CassandraException;
 
+import javax.xml.transform.Result;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -79,12 +80,14 @@ public class CassandraBenchmark implements DatabaseLoad {
             session.execute("CREATE TABlE particles.sparse (name varchar, dbdatasetname varchar, area int, relarea decimal," +
                     "masstocharge double, height double, PRIMARY KEY (name, masstocharge))");
 
-            session.execute("CREATE TABLE particles.collections (collectionID varchar, PRIMARY KEY (collectionID))");
+            session.execute("CREATE TABLE particles.collections (CollectionID int, Parent int, Name varchar, Comment varchar, Description varchar, Datatype varchar, AtomID int, PRIMARY KEY (CollectionId, Name))");
+            //session.execute("CREATE TABLE particles.collections (parID varchar, collectionID varchar, PRIMARY KEY (parID, collectionID))");
 
 
             boolean moretoread = true;
             int setindex = 0;
-
+            int v = 0;
+            String particleCollectionName = reader.par.get("dbdatasetname") + "_particles";
             while(moretoread) {
                 List data = reader.readNSpectraFrom(1, setindex);
                 setindex = (int)data.get(data.size() - 1);
@@ -100,7 +103,7 @@ public class CassandraBenchmark implements DatabaseLoad {
                     String specname = (String) ((Map)((Map)data.get(i)).get("dense")).get("specname");
                     session.executeAsync("INSERT INTO particles.dense (name, dbdatasetname, time, laserpower, size, scatdelay, specname) Values (?, ?, ?, ?, ?, ?, ?)",
                             ((Map)data.get(i)).get("name"), dbdatasetname, LocalDate.fromMillisSinceEpoch(time.getTime()), laserpower, size, scatdelay, specname);
-
+                    /**
                     for(int j = 0; j <sparse.size(); j++){
                         int area = (int) sparse.get(j).get("area");
                         Float relarea = (Float) sparse.get(j).get("relarea");
@@ -109,7 +112,10 @@ public class CassandraBenchmark implements DatabaseLoad {
                         session.executeAsync("INSERT INTO particles.sparse (name, dbdatasetname, area, relarea, masstocharge, height) Values (?, ?, ?, ?, ?, ?)",
                                ((Map)data.get(i)).get("name"), dbdatasetname, area, relarea, masstocharge, height);
                         System.out.println(masstocharge);
-                    }
+                    }*/
+
+                    session.executeAsync("INSERT INTO particles.collections (CollectionID, name, AtomId) Values(?, ?, ?)", "0", particleCollectionName, v);
+                    v++;
 
                 }
 
@@ -117,20 +123,25 @@ public class CassandraBenchmark implements DatabaseLoad {
                     moretoread = false;
                 }
             }
-            //Adds this dataset to list of collections
-            String particleCollectionName = reader.par.get("dbdatasetname") + "_particles";
-            session.executeAsync("INSERT INTO particles.collections (collectionID) Values(?)", particleCollectionName);
-
 
             Row row = rs.one();
             System.out.println(row.getString("release_version"));
+            String collectionID = "particles.dense";
+
+            //ResultSet r1 = session.execute("SELECT name FROM particles.collections WHERE CollectionID = 0");
+
+            //session.execute("UPDATE particles.collections SET description = \'"
+             //       + "hello" + "\' WHERE CollectionID =  0  AND name = \'"+ r1+"\'");
+
+            //ResultSet rss = session.execute("SELECT description FROM particles.collections WHERE CollectionId = 0");
 
             String id = particleCollectionName;
 
             ResultSet rss = session.execute("SELECT * FROM particles.collections WHERE collectionID = \'" + id+"\'");
-                    //session.execute("SELECT collectionID FROM particles.collections");
 
             System.out.println(rss.all());
+
+
 
         } catch (CassandraException ce) {
             if (cluster != null) cluster.close();
