@@ -43,10 +43,12 @@ public class InfluxDBBenchmark implements DatabaseLoad {
 
             boolean moretoread = true;
             int setindex = 0;
+            int atomId = 0;
 
             while (moretoread) {
                 List data = reader.readNSpectraFrom(1, setindex);
                 setindex = (int) data.get(data.size() - 1);
+                System.out.println(data);
                 for (int i = 0; i < data.size() - 1; i++) {
                     List spectrum = (List) ((Map) data.get(i)).get("sparse");
                     if (((Map) data.get(i)).get("name") != null) {

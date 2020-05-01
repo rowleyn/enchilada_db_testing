@@ -23,14 +23,12 @@ public class DataLoadBenchmark {
 
         // Instantiate database inserters here and add them to list
         //DatabaseLoad mongo = new MongoDBBenchmark();
-        DatabaseLoad sql = new SQLBenchmark();
-        DatabaseLoad postgres = new PostgreSQLBenchmark();
+//        DatabaseLoad sql = new SQLBenchmark();
+//        DatabaseLoad postgres = new PostgreSQLBenchmark();
+        DatabaseLoad influx = new InfluxDBBenchmark();
+//        DatabaseLoad cassandra = new CassandraBenchmark();
 
-
-        DatabaseLoad cassandra = new CassandraBenchmark();
-
-        //dbs.add(mongo);
-        dbs.add(cassandra);
+        dbs.add(influx);
 
         // Perform benchmarks
         for (DatabaseLoad db : dbs) {

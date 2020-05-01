@@ -1,6 +1,6 @@
 package edu.carleton.dataloadbenchmark;
 
-import jdk.nashorn.internal.runtime.Debug;
+//import jdk.nashorn.internal.runtime.Debug;
 import org.bson.Document;
 
 import java.io.File;
