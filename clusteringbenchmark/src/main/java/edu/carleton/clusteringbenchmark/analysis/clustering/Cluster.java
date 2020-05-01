@@ -237,6 +237,7 @@ public abstract class Cluster extends CollectionDivider {
 		double distance = 3.0;
 		int chosenCluster = -1;
 		TIntShortHashMap clusterMapping = new TIntShortHashMap();
+		atomIDsToDelete = new StringBuilder("");
 		
 		ArrayList<float[]> tempCentroidList =
 			Cluster.generateCentroidArrays(centroidList,ARRAYOFFSET);
@@ -308,7 +309,7 @@ public abstract class Cluster extends CollectionDivider {
 				}
 			}// end with no particle remaining
 			db.bulkInsertExecute();
-			db.bulkDelete();
+			db.bulkDelete(atomIDsToDelete, collection);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

@@ -103,18 +103,24 @@ public class MongoDBBenchmark implements DatabaseLoad {
             setindex = (int)data.get(data.size()-1);
 
             Document spectrumdata = new Document();
-            spectrumdata.put("_id", ((Map)data.get(0)).get("name"));
+            spectrumdata.put("_id", atomidcount);
+            spectrumdata.put("name", ((Map)data.get(0)).get("name"));
             spectrumdata.put("sparsedata", ((Map)data.get(0)).get("sparse"));
             spectrumdata.put("densedata", ((Map)data.get(0)).get("dense"));
 
-            Document atom = new Document();
-            atom.put("_id", atomidcount);
-            atom.put("name", ((Map)data.get(0)).get("name"));
+            Document newatomentry = new Document();
+            Document csentry = new Document();
+            List cs = new ArrayList();
+            csentry.append("collectionid", 0);
+            csentry.append("collectionname", particleCollectionName);
+            cs.add(csentry);
+            newatomentry.append("_id", atomidcount);
+            newatomentry.append("collections", cs);
             atomidcount++;
 
             try {
                 particles.insertOne(spectrumdata);
-                atoms.insertOne(atom);
+                atoms.insertOne(newatomentry);
             }
             catch (MongoException e) {
                 System.out.println("Something went wrong...");

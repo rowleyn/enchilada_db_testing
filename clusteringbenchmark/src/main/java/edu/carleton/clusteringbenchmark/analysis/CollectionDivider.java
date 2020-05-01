@@ -64,7 +64,7 @@ public abstract class CollectionDivider {
 	
 	protected String comment;
 	
-	private StringBuilder atomIDsToDelete;
+	protected StringBuilder atomIDsToDelete;
 
 	/**
 	 * The collection you are dividing
