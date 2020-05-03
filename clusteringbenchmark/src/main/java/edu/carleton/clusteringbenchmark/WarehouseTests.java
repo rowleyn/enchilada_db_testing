@@ -12,6 +12,9 @@ public class WarehouseTests {
             db = new CassandraWarehouse();
             bulkInsertTest();
     }
+    public static int createCollectionTest() {
+        return -1;
+    }
 
     public static void bulkInsertTest() throws Exception {
 
@@ -22,7 +25,10 @@ public class WarehouseTests {
             e.printStackTrace();
         }
         //Need to get AtomID and ParentID
-        //db.bulkInsertAtom();
+        int atomID = db.getNextID();
+        db.bulkInsertAtom(atomID, atomID +1 );
+        db.bulkInsertExecute();
+
     }
 
 }
