@@ -66,6 +66,13 @@ public class ParticleInfo {
 	}
 
 	/**
+	 * @param particleInfo The particleInfo to set.
+	 */
+	public void setParticleInfo(ATOFMSAtomFromDB particleInfo) {
+		this.particleInfo = particleInfo;
+	}
+
+	/**
 	 * @return Returns the binnedList.
 	 */
 	public BinnedPeakList getBinnedList() {
@@ -77,5 +84,9 @@ public class ParticleInfo {
 	
 	public int getID() {
 		return ID;
+	}
+
+	public void setID(int id) {
+		this.ID = id;
 	}
 }

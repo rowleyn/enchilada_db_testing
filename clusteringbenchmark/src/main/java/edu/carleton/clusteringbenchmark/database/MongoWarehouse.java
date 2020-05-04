@@ -1,10 +1,6 @@
 package edu.carleton.clusteringbenchmark.database;
 
-import com.mongodb.client.MongoClients;
-import com.mongodb.client.MongoClient;
-
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.MongoCollection;
+import com.mongodb.client.*;
 
 import com.mongodb.client.model.Projections;
 import static com.mongodb.client.model.Filters.*;
@@ -24,13 +20,12 @@ import java.util.Scanner;
 
 public class MongoWarehouse implements InfoWarehouse {
 
-    MongoClient client;
-    MongoDatabase db;
-    File bulkInsertFile;
-    PrintWriter bulkInsertFileWriter;
+    private MongoDatabase db;
+    private File bulkInsertFile;
+    private PrintWriter bulkInsertFileWriter;
 
     public MongoWarehouse() {
-        client = MongoClients.create();
+        MongoClient client = MongoClients.create();
         db = client.getDatabase("enchilada_benchmark");
     }
 
@@ -40,7 +35,7 @@ public class MongoWarehouse implements InfoWarehouse {
 
     public Collection getCollection(int collectionId) {
         MongoCollection<Document> collections = db.getCollection("collections");
-        Document collection = collections.find(eq("_id", collectionId)).first();
+        Document collection = collections.find(eq("_id", collectionId)).projection(include("_id")).first();
         if (collection != null) {
             return new Collection("ATOFMS", collectionId, this);
         }
@@ -52,58 +47,51 @@ public class MongoWarehouse implements InfoWarehouse {
     }
 
     public String getCollectionName(int collectionId) {
-        String name = "";
         MongoCollection<Document> collections = db.getCollection("collections");
-        Document collection = collections.find(eq("_id", collectionId)).first();
+        Document collection = collections.find(eq("_id", collectionId)).projection(include("name")).first();
         if (collection != null) {
-            name = (String)collection.get("name");
+            return collection.getString("name");
         }
         else {
             ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Error retrieving the collection name for collection " + collectionId);
             System.err.println("Error retrieving Collection Name.");
         }
 
-        return name;
+        return "";
     }
 
     public int getCollectionSize(int collectionID) {
-        int size = -1;
         MongoCollection<Document> collections = db.getCollection("collections");
-        Document collection = collections.find(eq("_id", collectionID)).first();
+        MongoCollection<Document> atoms = db.getCollection("atoms");
+        Document collection = collections.find(eq("_id", collectionID)).projection(include("atomids")).first();
         if (collection != null) {
-            String name = (String)collection.get("name");
-            MongoCollection atomcollection = db.getCollection(name);
-            int count = (int)atomcollection.countDocuments();
-            if (count != 0) {
-                size = count;
-            }
+            return (int)atoms.countDocuments(in("_id", collection.get("atomids")));
         }
         else {
             ErrorLogger.writeExceptionToLogAndPrompt(dbname(),"Error retrieving the collection size for collectionID "+collectionID);
             System.err.println("Error retrieving Collection Size.");
         }
-        return size;
+        return -1;
     }
 
     public String getCollectionDatatype(int collectionId) {
-        String datatype = "";
         MongoCollection<Document> collections = db.getCollection("collections");
-        Document collection = collections.find(eq("_id", collectionId)).first();
+        Document collection = collections.find(eq("_id", collectionId)).projection(include("datatype")).first();
 
         if (collection != null) {
-            datatype = (String)collection.get("datatype");
+            return collection.getString("datatype");
         }
         else {
             ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Error retrieving the collection datatype for collection " + collectionId);
             System.err.println("Error retrieving Collection Datatype.");
         }
 
-        return datatype;
+        return "";
     }
 
     public boolean setCollectionDescription(Collection collection, String description) {
         MongoCollection<Document> collections = db.getCollection("collections");
-        Document collectiondoc = collections.find(eq("_id", collection.getCollectionID())).first();
+        Document collectiondoc = collections.find(eq("_id", collection.getCollectionID())).projection(include("description")).first();
 
         if (collectiondoc != null) {
             collectiondoc.put("description", description);
@@ -119,11 +107,11 @@ public class MongoWarehouse implements InfoWarehouse {
 
     public int createEmptyCollection(String datatype, int parent, String name, String comment, String description) {
         MongoCollection<Document> collections = db.getCollection("collections");
-        Document collection = collections.find().sort(descending("_id")).first();
+        Document collection = collections.find().projection(include("_id")).sort(descending("_id")).first();
 
         int nextid;
         if (collection != null) {
-            nextid = (int)collection.get("_id") + 1;
+            nextid = collection.getInteger("_id") + 1;
         }
         else {
             nextid = 0;
@@ -136,6 +124,7 @@ public class MongoWarehouse implements InfoWarehouse {
         collectioninfo.put("parent", parent);
         collectioninfo.put("comment", comment);
         collectioninfo.put("description", description);
+        collectioninfo.put("atomids", new ArrayList<>());
         collections.insertOne(collectioninfo);
 
         return nextid;
@@ -169,7 +158,7 @@ public class MongoWarehouse implements InfoWarehouse {
 
     public int getNextID() {
         MongoCollection<Document> atoms = db.getCollection("atoms");
-        Document atom = atoms.find().sort(descending("_id")).first();
+        Document atom = atoms.find().projection(include("_id")).sort(descending("_id")).first();
         if (atom != null) {
             return atom.getInteger("_id") + 1;
         }
@@ -208,50 +197,35 @@ public class MongoWarehouse implements InfoWarehouse {
             sparsedoc.add(sparseentry);
         }
 
-        Document newcollectionentry = new Document();
-        newcollectionentry.append("_id", nextID);
-        newcollectionentry.append("sparsedata", sparsedoc);
-        newcollectionentry.append("densedata", densedoc);
-
-        MongoCollection<Document> insertcollection = db.getCollection(collectiondoc.getString("name"));
-        insertcollection.insertOne(newcollectionentry);
-
         Document newatomentry = new Document();
-        List cs = new ArrayList();
-        Document csentry = new Document();
-        csentry.append("collectionid", collection.getCollectionID());
-        csentry.append("collectionname", collectiondoc.getString("name"));
-        cs.add(csentry);
         newatomentry.append("_id", nextID);
-        newatomentry.append("collections", cs);
+        newatomentry.append("sparsedata", sparsedoc);
+        newatomentry.append("densedata", densedoc);
+
         atoms.insertOne(newatomentry);
+
+        List<Integer> atomids = collectiondoc.getList("atomids", Integer.class);
+        atomids.add(nextID);
+        collectiondoc.put("atomids", atomids);
+        collections.replaceOne(eq("_id", collection.getCollectionID()), collectiondoc);
 
         return nextID;
     }
 
     public boolean addCenterAtom(int centerAtomID, int centerCollID) {
-        MongoCollection<Document> atoms = db.getCollection("atoms");
-        Document atom = atoms.find(eq("_id", centerAtomID)).first();
-        Collection collection = getCollection(centerCollID);
-        Document csentry = new Document();
-        csentry.append("collectionid", collection.getCollectionID());
-        csentry.append("collectionname", collection.getName());
-        if (atom == null) {
-            Document newatomentry = new Document();
-            List cs = new ArrayList();
-            cs.add(csentry);
-            newatomentry.append("_id", centerAtomID);
-            newatomentry.append("collections", cs);
-            atoms.insertOne(newatomentry);
-        }
-        else {
-            if (!((List)atom.get("collections")).contains(csentry)) {
-                ((List)atom.get("collections")).add(csentry);
-                atoms.replaceOne(eq("_id", centerAtomID), atom);
-            }
-        }
+        MongoCollection<Document> collections = db.getCollection("collections");
+        Document collection = collections.find(eq("_id", centerCollID)).first();
 
-        return true;
+        if (collection != null) {
+            List<Integer> atomids = collection.getList("atomids", Integer.class);
+            if (!atomids.contains(centerAtomID)) {
+                atomids.add(centerAtomID);
+                collection.put("atomids", atomids);
+                collections.replaceOne(eq("_id", centerCollID), collection);
+            }
+            return true;
+        }
+        return false;
     }
 
     public void bulkInsertInit() throws Exception {
@@ -287,45 +261,39 @@ public class MongoWarehouse implements InfoWarehouse {
         }
         bulkInsertFileWriter.close();
 
-        MongoCollection<Document> atoms = db.getCollection("atoms");
+        MongoCollection<Document> collections = db.getCollection("collections");
 
-        Scanner reader = new Scanner(bulkInsertFile);
-        while (reader.hasNextLine()) {
-            String[] pair = reader.nextLine().split(",");
-            Document atom = atoms.find(eq("_id", Integer.parseInt(pair[1]))).first();
-            Collection collection = getCollection(Integer.parseInt(pair[0]));
-            Document csentry = new Document();
-            csentry.append("collectionid", collection.getCollectionID());
-            csentry.append("collectionname", collection.getName());
-            if (atom == null) {
-                Document newatomentry = new Document();
-                List cs = new ArrayList();
-                cs.add(csentry);
-                newatomentry.append("_id", Integer.parseInt(pair[1]));
-                newatomentry.append("collections", cs);
-                atoms.insertOne(newatomentry);
-            }
-            else {
-                ((List)atom.get("collections")).add(csentry);
-                atoms.replaceOne(eq("_id", Integer.parseInt(pair[1])), atom);
-            }
-        }
-    }
-
-    public void bulkDelete(StringBuilder atomIDsToDelete, Collection collection) throws Exception {
-        MongoCollection<Document> atoms = db.getCollection("atoms");
-        Scanner atomids = new Scanner(atomIDsToDelete.toString()).useDelimiter(",");
-        while (atomids.hasNext()) {
-            Document atom = atoms.find(eq("_id", atomids.next())).first();
-            if (atom != null) {
-                if (((List)atom.get("collections")).contains()) {
-
+        Scanner bulkinsert = new Scanner(bulkInsertFile);
+        while (bulkinsert.hasNextLine()) {
+            String[] pair = bulkinsert.nextLine().split(",");
+            Document collection = collections.find(eq("_id", Integer.parseInt(pair[0]))).first();
+            if (collection != null) {
+                List<Integer> atomids = collection.getList("atomids", Integer.class);
+                if (!atomids.contains(Integer.parseInt(pair[1]))) {
+                    atomids.add(Integer.parseInt(pair[1]));
+                    collection.put("atomids", atomids);
+                    collections.replaceOne(eq("_id", Integer.parseInt(pair[0])), collection);
                 }
             }
         }
     }
 
-    public CollectionCursor getAtomInfoOnlyCursor(Collection collection) {
+    public void bulkDelete(StringBuilder atomIDsToDelete, Collection collection) throws Exception {
+        MongoCollection<Document> collections = db.getCollection("collections");
+        Document collectiondoc = collections.find(eq("_id", collection.getCollectionID())).first();
+        if (collectiondoc != null) {
+            List<Integer> atomids = collectiondoc.getList("atomids", Integer.class);
+            Scanner deleteids = new Scanner(atomIDsToDelete.toString()).useDelimiter(",");
+            while (deleteids.hasNext()) {
+                int nextid = Integer.parseInt(deleteids.next());
+                atomids.remove(nextid);
+            }
+            collectiondoc.put("atomids", atomids);
+            collections.replaceOne(eq("_id", collection.getCollectionID()), collectiondoc);
+        }
+    }
 
+    public CollectionCursor getAtomInfoOnlyCursor(Collection collection) {
+        return new MongoCursor(collection);
     }
 }

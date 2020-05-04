@@ -21,15 +21,6 @@ public class MongoDBBenchmark implements DatabaseLoad {
         MongoCollection<Document> collections = database.getCollection("collections");
         MongoCollection<Document> atoms = database.getCollection("atoms");
         MongoCollection<Document> pars = database.getCollection("pars");
-
-        Document par = pars.find().first();
-        if (par != null) {
-            MongoCollection<Document> particles = database.getCollection(par.get("datasetname") + "_particles");
-            MongoCollection<Document> clusters = database.getCollection(par.get("datasetname") + "_clusters");
-            particles.drop();
-            clusters.drop();
-        }
-
         metadata.drop();
         collections.drop();
         atoms.drop();
@@ -91,8 +82,8 @@ public class MongoDBBenchmark implements DatabaseLoad {
 
         // build particle collection
         String particleCollectionName = reader.par.get("dbdatasetname") + "_particles";
-        MongoCollection<Document> particles = database.getCollection(particleCollectionName);
         MongoCollection<Document> atoms = database.getCollection("atoms");
+        List atomids = new ArrayList();
 
         boolean moretoread = true;
         int setindex = 0;
@@ -108,19 +99,11 @@ public class MongoDBBenchmark implements DatabaseLoad {
             spectrumdata.put("sparsedata", ((Map)data.get(0)).get("sparse"));
             spectrumdata.put("densedata", ((Map)data.get(0)).get("dense"));
 
-            Document newatomentry = new Document();
-            Document csentry = new Document();
-            List cs = new ArrayList();
-            csentry.append("collectionid", 0);
-            csentry.append("collectionname", particleCollectionName);
-            cs.add(csentry);
-            newatomentry.append("_id", atomidcount);
-            newatomentry.append("collections", cs);
+            atomids.add(atomidcount);
             atomidcount++;
 
             try {
-                particles.insertOne(spectrumdata);
-                atoms.insertOne(newatomentry);
+                atoms.insertOne(spectrumdata);
             }
             catch (MongoException e) {
                 System.out.println("Something went wrong...");
@@ -141,6 +124,7 @@ public class MongoDBBenchmark implements DatabaseLoad {
         collectioninfo.put("_id", 0);
         collectioninfo.put("name", particleCollectionName);
         collectioninfo.put("datatype", "ATOFMS");
+        collectioninfo.put("atoms", atomids);
         collections.insertOne(collectioninfo);
 
         mongoClient.close();
