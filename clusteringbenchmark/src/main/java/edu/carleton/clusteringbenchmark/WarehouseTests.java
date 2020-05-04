@@ -21,6 +21,8 @@ public class WarehouseTests {
         int collectionid = db.createEmptyCollection(dataType, 0, "name", "comment", "description");
         System.out.println(db.getCollectionName(collectionid));
         System.out.println(db.getCollection(collectionid));
+        System.out.println(db.getCollectionSize(collectionid));
+        //db.getColNamesAndTypes()
     }
 
     public static void bulkInsertTest() throws Exception {
