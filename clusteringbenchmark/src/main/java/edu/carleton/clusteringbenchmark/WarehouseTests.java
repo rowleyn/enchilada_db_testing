@@ -79,10 +79,15 @@ public class WarehouseTests {
             e.printStackTrace();
         }
         //Need to get AtomID and ParentID
-        int atomID = db.getNextID();
-        db.bulkInsertAtom(atomID, atomID +1 );
-        db.bulkInsertExecute();
-        System.out.println("Success");
+        List<Integer> atomIDs = insertParticlesTest();
+        int atomID = atomIDs.get(0);
+        db.bulkInsertAtom(atomID, 0);
+        try{
+            db.bulkInsertExecute();
+            System.out.println("Success");
+        } catch (Exception e){
+            System.out.println("Failure");
+        }
 
         long end = System.currentTimeMillis();
         System.out.print("Time for Bulk Insert");
