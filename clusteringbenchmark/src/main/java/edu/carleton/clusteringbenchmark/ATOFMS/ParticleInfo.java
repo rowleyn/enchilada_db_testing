@@ -81,6 +81,9 @@ public class ParticleInfo {
 	/**
 	 * @param binnedList The binnedList to set.
 	 */
+	public void setBinnedList(BinnedPeakList binnedList) {
+		this.binnedList = binnedList;
+	}
 	
 	public int getID() {
 		return ID;
