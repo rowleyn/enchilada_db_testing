@@ -179,7 +179,7 @@ public class MongoWarehouse implements InfoWarehouse {
         MongoCollection<Document> atoms = db.getCollection("atoms");
 
         Document densedoc = new Document();
-        String[] denseparams = dense.split(",");
+        String[] denseparams = dense.split(", ");
         densedoc.append("time", denseparams[0]);
         densedoc.append("laserpower", denseparams[1]);
         densedoc.append("size", denseparams[2]);
@@ -188,7 +188,7 @@ public class MongoWarehouse implements InfoWarehouse {
 
         List<Document> sparsedoc = new ArrayList<>();
         for (String sparsestr : sparse) {
-            String[] sparseparams = sparsestr.split(",");
+            String[] sparseparams = sparsestr.split(", ");
             Document sparseentry = new Document();
             sparseentry.append("masstocharge", sparseparams[0]);
             sparseentry.append("area", sparseparams[1]);

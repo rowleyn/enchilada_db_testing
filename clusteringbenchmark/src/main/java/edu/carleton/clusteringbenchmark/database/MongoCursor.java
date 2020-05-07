@@ -4,11 +4,13 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
 import edu.carleton.clusteringbenchmark.ATOFMS.ParticleInfo;
+import edu.carleton.clusteringbenchmark.analysis.BinnedPeakList;
 import edu.carleton.clusteringbenchmark.atom.ATOFMSAtomFromDB;
 import edu.carleton.clusteringbenchmark.collection.Collection;
 import org.bson.Document;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.mongodb.client.model.Filters.*;
 import static com.mongodb.client.model.Projections.*;
@@ -43,6 +45,12 @@ public class MongoCursor implements CollectionCursor {
                 dense.getDate("time"),
                 dense.getDouble("size").floatValue()
         ));
+        List<Document> sparse = atom.getList("sparsedata", Document.class);
+        BinnedPeakList peaks = new BinnedPeakList();
+        for (Document peak : sparse) {
+            peaks.add(peak.getInteger("masstocharge"), peak.getInteger("area"));
+        }
+        particleInfo.setBinnedList(peaks);
         particleInfo.setID(atom.getInteger("_id"));
         return particleInfo;
     }
