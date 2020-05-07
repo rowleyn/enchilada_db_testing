@@ -15,7 +15,6 @@ import java.util.List;
 public class WarehouseTests {
 
     private static InfoWarehouse db;
-    private static CollectionCursor cursor;
 
     private static int NUM_PARTICLES = 5;
 
@@ -58,9 +57,12 @@ public class WarehouseTests {
         String denseData = dateString + "," + laserPower + "," + size + "," + scatterDelay + ", " + filename;
 
         List<Integer> atomids = new ArrayList<>();
+        int lastID = -1;
 
         for (int i = 0; i < NUM_PARTICLES; i++) {
             int nextID = db.getNextID();
+            assert nextID - 1 == lastID;
+            lastID = nextID;
             int particleID = db.insertParticle(denseData, sparseData, db.getCollection(0), nextID);
             assert nextID == particleID;
             atomids.add(particleID);
@@ -91,7 +93,8 @@ public class WarehouseTests {
 
     }
 
-    public static void cursorTest() throws Exception{
+    public static void cursorTest() {
+        CollectionCursor cursor = db.getAtomInfoOnlyCursor(db.getCollection(0));
         for (int i = 0; i < 2; i++) {
             while (cursor.next()) {
                 ParticleInfo info = cursor.getCurrent();
