@@ -1,12 +1,16 @@
 package edu.carleton.clusteringbenchmark.database;
 
+import edu.carleton.clusteringbenchmark.ATOFMS.ParticleInfo;
 import edu.carleton.clusteringbenchmark.collection.Collection;
+import org.bson.Document;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.*;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Date;
 
@@ -26,6 +30,7 @@ public class SQLWarehouse implements InfoWarehouse {
     private StringBuilder atomIDsToDelete;
     //atomIDsToDelete = new StringBuilder("");
     //atomIDsToDelete.append(atomID + ",");
+
     /**
      * The collection you are dividing
      */
@@ -353,7 +358,6 @@ public class SQLWarehouse implements InfoWarehouse {
         }
     }
 
-
     // not from enchilada, this is meant to replace the putInSubCollectionBulkExecute method in CollectionDivider so that it doesn't contain SQL
     public void bulkDelete(StringBuilder atomIDsToDelete, Collection collection) throws Exception{
         Connection conn = null;
@@ -436,14 +440,102 @@ public class SQLWarehouse implements InfoWarehouse {
 
     }
 
-    //TODO
-    //What is this
+
     // simple, just returns a new AtomInfoOnlyCursor object on collection
     public CollectionCursor getAtomInfoOnlyCursor(Collection collection){
-        // return new AtomInfoOnlyCursor(collection);
+        return new AtomInfoOnlyCursor(collection);
     }
 
 
+    /**
+     * AtomInfoOnly cursor.  Returns atom info.
+     */
+    private class AtomInfoOnlyCursor implements CollectionCursor {
+        protected java.sql.ResultSet partInfRS = null;
+        protected java.sql.Statement stmt = null;
+        Collection collection;
+
+        public AtomInfoOnlyCursor(Collection col) {
+            super();
+            assert (col.getDatatype().equals("ATOFMS")) : "Wrong datatype for cursor.";
+            collection = col;
+
+            String q = "SELECT "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID, OrigFilename, ScatDelay," +
+                    " LaserPower, [Time], Size FROM "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+", InternalAtomOrder WHERE" +
+                    " InternalAtomOrder.CollectionID = "+collection.getCollectionID() +
+                    " AND "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID = InternalAtomOrder.AtomID";
+
+            try {
+                partInfRS = stmt.executeQuery(q.toString());
+            } catch (SQLException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+
+        /**
+         * gets the dynamic table name according to the datatype and the table
+         * type.
+         *
+         * @param table
+         * @param datatype
+         * @return table name.
+         */
+        public String getDynamicTableName(DynamicTable table, String datatype) {
+            assert (!datatype.equals("root")) : "root isn't a datatype.";
+
+            if (table == DynamicTable.DataSetInfo)
+                return datatype + "DataSetInfo";
+            if (table == DynamicTable.AtomInfoDense)
+                return datatype + "AtomInfoDense";
+            if (table == DynamicTable.AtomInfoSparse)
+                return datatype + "AtomInfoSparse";
+            else return null;
+        }
+
+        @Override
+        public boolean next() {
+            try {
+                return partInfRS.next();
+            } catch (SQLException e) {
+                System.err.println("Error checking the " +
+                        "bounds of " +
+                        "the ResultSet.");
+                e.printStackTrace();
+                return false;
+            }
+        }
+
+        @Override
+        public ParticleInfo getCurrent() {
+            return null;
+        }
+
+        @Override
+        public void close() {
+            try {
+                stmt.close();
+                partInfRS.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void reset() {
+            try {
+                partInfRS.close();
+                partInfRS = stmt.executeQuery("SELECT "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID, OrigFilename, ScatDelay," +
+                        " LaserPower, [Time], Size FROM "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+", InternalAtomOrder WHERE" +
+                        " InternalAtomOrder.CollectionID = "+collection.getCollectionID() +
+                        " AND "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID = InternalAtomOrder.AtomID");
+            } catch (SQLException e) {
+                System.err.println("SQL Error resetting " +
+                        "cursor: ");
+                e.printStackTrace();
+            }
+        }
+    }
     //AtomInfoOnly cursor.  Returns atom info.
     /*
     private class AtomInfoOnlyCursor
@@ -569,25 +661,6 @@ public class SQLWarehouse implements InfoWarehouse {
         }
     }
     */
-    /**
-     * gets the dynamic table name according to the datatype and the table
-     * type.
-     * @param table
-     * @param datatype
-     * @return table name.
-     */
-    public String getDynamicTableName(DynamicTable table, String datatype) {
-        assert (!datatype.equals("root")) : "root isn't a datatype.";
-
-        if (table == DynamicTable.DataSetInfo)
-            return datatype + "DataSetInfo";
-        if (table == DynamicTable.AtomInfoDense)
-            return datatype + "AtomInfoDense";
-        if (table == DynamicTable.AtomInfoSparse)
-            return datatype + "AtomInfoSparse";
-        else return null;
-    }
-
 
 
     // simple, just gets the datatype (ATOFMS, AMs, etc.) of a collection
@@ -651,10 +724,63 @@ public class SQLWarehouse implements InfoWarehouse {
         return colNames;
     }
 
-    //TODO
-    //What is this
     // inserts a particle's sparse (peaks) and dense info into the db
     public int insertParticle(String dense, ArrayList<String> sparse,Collection collection, int nextID){
+        Connection conn = null;
+        PreparedStatement pst;
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, userName, password);
+            //Create tables
+           // pst = conn.prepareStatement("CREATE TABLE ATOFMSAtomInfoSparse (AtomID INT, PeakLocation FLOAT, PeakArea INT, RealPeakArea FLOAT, PeakHeight INT, PRIMARY KEY (AtomID, PeakLocation));");
+            //pst.executeUpdate();
+            //pst = conn.prepareStatement("CREATE TABLE ATOFMSAtomInfoDense (AtomID INT, Time SMALLDATETIME, LaserPower FLOAT, Size FLOAT, ScatDelay INT, OrigFileName VARCHAR(8000), PRIMARY KEY (AtomID));");
+            //pst.executeUpdate();
+
+            int currentAtomID = nextID;
+
+            String[] denseparams = dense.split(", ");
+            //Put data in tables
+            //Put data into ATOFMSAtomInfoDense
+
+            String strDate = denseparams[0];
+            String laserpower = denseparams[1];
+            String size = denseparams[2];
+            String scatDelay = denseparams[3];
+            String name = denseparams[4];
+
+            pst = conn.prepareStatement("INSERT INTO ATOFMSAtomInfoDense VALUES ("+ Integer.toString(currentAtomID) + ", '" + strDate + "', " + laserpower + ", " + size + ", " + scatDelay + ", '" + name +"')");
+            pst.execute();
+
+            //Put data into ATOFMSAtomInfoSparse
+            for (String sparsestr : sparse) {
+                String[] sparseparams = sparsestr.split(", ");
+                String mtc = sparseparams[0];
+                String area = sparseparams[1];
+                String relarea = sparseparams[2];
+                String height = sparseparams[3];
+                pst = conn.prepareStatement("INSERT INTO ATOFMSAtomInfoSparse VALUES (" + Integer.toString(currentAtomID) + ", " + mtc + ", " + area + ", " + relarea + ", " + height +")");
+                pst.execute();
+            }
+
+            pst = conn.prepareStatement("INSERT INTO AtomMembership " +
+                    "(CollectionID, AtomID) " +
+                    "VALUES (" +
+                    collection.getCollectionID() + ", " +
+                    nextID + ")");
+            pst.execute();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return nextID;
+
         /*
         try {
             Statement stmt = con.createStatement();

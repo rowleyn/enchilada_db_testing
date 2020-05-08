@@ -14,9 +14,6 @@ import java.util.List;
 
 
 public class WarehouseTests {
-    public static void main(String args[]) throws Exception{
-        System.out.println("Hey");
-
     private static InfoWarehouse db;
 
     private static int NUM_PARTICLES = 5;
