@@ -37,6 +37,7 @@ public class WarehouseTests {
             createCollectionTest();
             List<Integer> atomids = insertParticlesTest();
             bulkInsertTest();
+            bulkDeleteTest();
 
     }
     public static void createCollectionTest() {
@@ -45,7 +46,6 @@ public class WarehouseTests {
         System.out.println(db.getCollectionName(collectionid));
         System.out.println(db.getCollection(collectionid));
         System.out.println(db.getCollectionSize(collectionid));
-        //db.getColNamesAndTypes()
     }
 
     public static List<Integer> insertParticlesTest() {
@@ -97,6 +97,16 @@ public class WarehouseTests {
         long timeelapsed = end - start;
         System.out.println(" time elapsed" + timeelapsed + " milliseconds");
 
+    }
+
+    public static void bulkDeleteTest() throws Exception {
+        List<Integer> atomIDs = insertParticlesTest();
+        int atomID = atomIDs.get(0);
+        int atomID2 = atomIDs.get(1);
+        StringBuilder atomIDsToDelete= new StringBuilder();
+        atomIDsToDelete.append(atomID);
+        atomIDsToDelete.append(atomID2);
+        db.bulkDelete(atomIDsToDelete, db.getCollection(0));
     }
 
     public static void centerAtomsTest() {
