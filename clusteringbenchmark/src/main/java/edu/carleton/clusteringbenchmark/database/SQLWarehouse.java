@@ -355,7 +355,7 @@ public class SQLWarehouse implements InfoWarehouse {
 
 
     // not from enchilada, this is meant to replace the putInSubCollectionBulkExecute method in CollectionDivider so that it doesn't contain SQL
-    public void bulkDelete() throws Exception{
+    public void bulkDelete(StringBuilder atomIDsToDelete, Collection collection) throws Exception{
         Connection conn = null;
         System.out.println("Done with INSERTS, about to do DELETE");
 
