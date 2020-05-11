@@ -34,6 +34,7 @@ public class WarehouseTests {
 
     public static void main (String[]args) throws Exception {
             db = new CassandraWarehouse();
+            db.clear();
             createCollectionTest();
             List<Integer> atomids = insertParticlesTest();
             bulkInsertTest(atomids);
@@ -41,9 +42,9 @@ public class WarehouseTests {
             centerAtomsTest();
             colNamesTest();
             cursorTest();
-
-
+            db.clear();
     }
+
     public static Collection createCollectionTest() {
         String dataType = db.getCollectionDatatype(0);
         int collectionid = db.createEmptyCollection(dataType, 0, "name", "comment", "description");
@@ -102,10 +103,10 @@ public class WarehouseTests {
     }
 
     public static void bulkDeleteTest(List<Integer> atomids) throws Exception {
-        int atomID = atomids.get(0);
+        int atomID1 = atomids.get(0);
         int atomID2 = atomids.get(1);
         StringBuilder atomIDsToDelete= new StringBuilder();
-        atomIDsToDelete.append(atomID);
+        atomIDsToDelete.append(atomID1);
         atomIDsToDelete.append(",");
         atomIDsToDelete.append(atomID2);
         db.bulkDelete(atomIDsToDelete, db.getCollection(1));
