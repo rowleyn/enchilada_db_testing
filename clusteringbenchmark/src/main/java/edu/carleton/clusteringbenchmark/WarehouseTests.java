@@ -75,6 +75,8 @@ public class WarehouseTests {
             atomids.add(particleID);
         }
 
+        assert db.getCollectionSize(0) == NUM_PARTICLES;
+
         return atomids;
     }
 
