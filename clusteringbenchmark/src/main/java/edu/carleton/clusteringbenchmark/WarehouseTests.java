@@ -3,6 +3,7 @@ package edu.carleton.clusteringbenchmark;
 import edu.carleton.clusteringbenchmark.ATOFMS.ParticleInfo;
 import edu.carleton.clusteringbenchmark.analysis.BinnedPeakList;
 import edu.carleton.clusteringbenchmark.atom.ATOFMSAtomFromDB;
+import edu.carleton.clusteringbenchmark.collection.Collection;
 import edu.carleton.clusteringbenchmark.database.CassandraWarehouse;
 import edu.carleton.clusteringbenchmark.database.CollectionCursor;
 import edu.carleton.clusteringbenchmark.database.DynamicTable;
@@ -35,16 +36,23 @@ public class WarehouseTests {
             db = new CassandraWarehouse();
             createCollectionTest();
             List<Integer> atomids = insertParticlesTest();
-            bulkInsertTest();
-            bulkDeleteTest();
+            bulkInsertTest(atomids);
+            bulkDeleteTest(atomids);
+            centerAtomsTest();
+            colNamesTest();
+            cursorTest();
+
 
     }
-    public static void createCollectionTest() {
+    public static Collection createCollectionTest() {
         String dataType = db.getCollectionDatatype(0);
         int collectionid = db.createEmptyCollection(dataType, 0, "name", "comment", "description");
-        System.out.println(db.getCollectionName(collectionid));
-        System.out.println(db.getCollection(collectionid));
-        System.out.println(db.getCollectionSize(collectionid));
+        //write asserts for these
+        assert db.getCollectionName(collectionid).equals("name");
+        assert db.getCollection(collectionid) != null; //unsure about how to test this
+        assert db.getCollectionSize(collectionid) == 1;
+
+        return db.getCollection(collectionid);
     }
 
     public static List<Integer> insertParticlesTest() {
@@ -71,41 +79,36 @@ public class WarehouseTests {
         return atomids;
     }
 
-    public static void bulkInsertTest() throws Exception {
-        long start = System.currentTimeMillis();
-
+    public static void bulkInsertTest(List<Integer> atomids) throws Exception {
         try {
             db.bulkInsertInit();
         } catch (IOException  e){
             System.err.println("Error in bulk insert init");
             e.printStackTrace();
+            System.exit(1);
         }
-        //Need to get AtomID and ParentID
-        List<Integer> atomIDs = insertParticlesTest();
-        int atomID = atomIDs.get(0);
-        db.bulkInsertAtom(atomID, 0);
+        int newcollectionid = db.createEmptyCollection("ATOFMS", -1, "name", "comment", "description");
+        assert newcollectionid == 1;
+        for (int atomid : atomids) {
+            db.bulkInsertAtom(atomid, newcollectionid);
+        }
         try{
             db.bulkInsertExecute();
-            System.out.println("Success");
         } catch (Exception e){
-            System.out.println("Failure");
+            System.out.println("Error in bulk insert execute");
+            e.printStackTrace();
+            System.exit(1);
         }
-
-        long end = System.currentTimeMillis();
-        System.out.print("Time for Bulk Insert");
-        long timeelapsed = end - start;
-        System.out.println(" time elapsed" + timeelapsed + " milliseconds");
-
     }
 
-    public static void bulkDeleteTest() throws Exception {
-        List<Integer> atomIDs = insertParticlesTest();
-        int atomID = atomIDs.get(0);
-        int atomID2 = atomIDs.get(1);
+    public static void bulkDeleteTest(List<Integer> atomids) throws Exception {
+        int atomID = atomids.get(0);
+        int atomID2 = atomids.get(1);
         StringBuilder atomIDsToDelete= new StringBuilder();
         atomIDsToDelete.append(atomID);
+        atomIDsToDelete.append(",");
         atomIDsToDelete.append(atomID2);
-        db.bulkDelete(atomIDsToDelete, db.getCollection(0));
+        db.bulkDelete(atomIDsToDelete, db.getCollection(1));
     }
 
     public static void centerAtomsTest() {
@@ -131,9 +134,12 @@ public class WarehouseTests {
     }
 
     public static void cursorTest() {
+        int count;
         CollectionCursor cursor = db.getAtomInfoOnlyCursor(db.getCollection(0));
         for (int i = 0; i < 2; i++) {
+            count = 0;
             while (cursor.next()) {
+                count++;
                 ParticleInfo info = cursor.getCurrent();
                 ATOFMSAtomFromDB dense = info.getATOFMSParticleInfo();
                 BinnedPeakList sparse = info.getBinnedList();
@@ -147,9 +153,28 @@ public class WarehouseTests {
                 assert peak2Height == sparse.getAreaAt(posPeakLocation2);
                 assert peak2Height == sparse.getAreaAt(negPeakLocation2);
             }
+            assert count == NUM_PARTICLES;
             cursor.reset();
         }
+        count = 0;
+        cursor = db.getAtomInfoOnlyCursor(db.getCollection(1));
+        while (cursor.next()) {
+            count++;
+            ParticleInfo info = cursor.getCurrent();
+            ATOFMSAtomFromDB dense = info.getATOFMSParticleInfo();
+            BinnedPeakList sparse = info.getBinnedList();
+            assert filename.equals(dense.getFilename());
+            assert dateString.equals(dense.getDateString());
+            assert laserPower == dense.getLaserPower();
+            assert size == dense.getSize();
+            assert scatterDelay == dense.getScatDelay();
+            assert peak1Height == sparse.getAreaAt(posPeakLocation1);
+            assert peak1Height == sparse.getAreaAt(negPeakLocation1);
+            assert peak2Height == sparse.getAreaAt(posPeakLocation2);
+            assert peak2Height == sparse.getAreaAt(negPeakLocation2);
+        }
+        assert count == NUM_PARTICLES - 2;
+        cursor.reset();
         cursor.close();
-
     }
 }
