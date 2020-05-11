@@ -31,14 +31,13 @@ public class WarehouseTests {
     private static int posPeakLocation2 = 100;
     private static int negPeakLocation2 = -101;
     private static int peak2Height = 100;
-    public static List<Integer> atomids;
 
     public static void main (String[]args) throws Exception {
             db = new CassandraWarehouse();
             createCollectionTest();
-            atomids = insertParticlesTest();
-            bulkInsertTest();
-            bulkDeleteTest();
+            List<Integer> atomids = insertParticlesTest();
+            bulkInsertTest(atomids);
+            bulkDeleteTest(atomids);
             centerAtomsTest();
             colNamesTest();
             cursorTest();
@@ -79,41 +78,36 @@ public class WarehouseTests {
         return atomids;
     }
 
-    public static void bulkInsertTest() throws Exception {
-        long start = System.currentTimeMillis();
-
+    public static void bulkInsertTest(List<Integer> atomids) throws Exception {
         try {
             db.bulkInsertInit();
         } catch (IOException  e){
             System.err.println("Error in bulk insert init");
             e.printStackTrace();
+            System.exit(1);
         }
-        //Need to get AtomID and ParentID
-        //List<Integer> atomIDs = insertParticlesTest();
-        int atomID = atomids.get(0);
-        db.bulkInsertAtom(atomID, 0);
+        int newcollectionid = db.createEmptyCollection("ATOFMS", -1, "name", "comment", "description");
+        assert newcollectionid == 1;
+        for (int atomid : atomids) {
+            db.bulkInsertAtom(atomid, newcollectionid);
+        }
         try{
             db.bulkInsertExecute();
-            System.out.println("Success");
         } catch (Exception e){
-            System.out.println("Failure");
+            System.out.println("Error in bulk insert execute");
+            e.printStackTrace();
+            System.exit(1);
         }
-
-        long end = System.currentTimeMillis();
-        System.out.print("Time for Bulk Insert");
-        long timeelapsed = end - start;
-        System.out.println(" time elapsed" + timeelapsed + " milliseconds");
-
     }
 
-    public static void bulkDeleteTest() throws Exception {
-        atomids = insertParticlesTest();
+    public static void bulkDeleteTest(List<Integer> atomids) throws Exception {
         int atomID = atomids.get(0);
         int atomID2 = atomids.get(1);
         StringBuilder atomIDsToDelete= new StringBuilder();
         atomIDsToDelete.append(atomID);
+        atomIDsToDelete.append(",");
         atomIDsToDelete.append(atomID2);
-        db.bulkDelete(atomIDsToDelete, db.getCollection(0));
+        db.bulkDelete(atomIDsToDelete, db.getCollection(1));
     }
 
     public static void centerAtomsTest() {
@@ -139,11 +133,12 @@ public class WarehouseTests {
     }
 
     public static void cursorTest() {
+        int count;
         CollectionCursor cursor = db.getAtomInfoOnlyCursor(db.getCollection(0));
         for (int i = 0; i < 2; i++) {
-            System.out.println(cursor.next());
+            count = 0;
             while (cursor.next()) {
-                System.out.println("enter");
+                count++;
                 ParticleInfo info = cursor.getCurrent();
                 ATOFMSAtomFromDB dense = info.getATOFMSParticleInfo();
                 BinnedPeakList sparse = info.getBinnedList();
@@ -157,9 +152,28 @@ public class WarehouseTests {
                 assert peak2Height == sparse.getAreaAt(posPeakLocation2);
                 assert peak2Height == sparse.getAreaAt(negPeakLocation2);
             }
+            assert count == NUM_PARTICLES;
             cursor.reset();
         }
+        count = 0;
+        cursor = db.getAtomInfoOnlyCursor(db.getCollection(1));
+        while (cursor.next()) {
+            count++;
+            ParticleInfo info = cursor.getCurrent();
+            ATOFMSAtomFromDB dense = info.getATOFMSParticleInfo();
+            BinnedPeakList sparse = info.getBinnedList();
+            assert filename.equals(dense.getFilename());
+            assert dateString.equals(dense.getDateString());
+            assert laserPower == dense.getLaserPower();
+            assert size == dense.getSize();
+            assert scatterDelay == dense.getScatDelay();
+            assert peak1Height == sparse.getAreaAt(posPeakLocation1);
+            assert peak1Height == sparse.getAreaAt(negPeakLocation1);
+            assert peak2Height == sparse.getAreaAt(posPeakLocation2);
+            assert peak2Height == sparse.getAreaAt(negPeakLocation2);
+        }
+        assert count == NUM_PARTICLES - 2;
+        cursor.reset();
         cursor.close();
-
     }
 }
