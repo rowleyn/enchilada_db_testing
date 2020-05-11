@@ -29,6 +29,13 @@ public class MongoWarehouse implements InfoWarehouse {
         db = client.getDatabase("enchilada_benchmark");
     }
 
+    public void clear() {
+        MongoCollection<Document> collections = db.getCollection("collections");
+        MongoCollection<Document> atoms = db.getCollection("atoms");
+        collections.drop();
+        atoms.drop();
+    }
+
     public String dbname() {
         return "MongoDB";
     }

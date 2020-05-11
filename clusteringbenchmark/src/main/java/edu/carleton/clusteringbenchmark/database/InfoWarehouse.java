@@ -43,4 +43,6 @@ public interface InfoWarehouse {
     public CollectionCursor getAtomInfoOnlyCursor(Collection collection); // simple, just returns a new AtomInfoOnlyCursor object on collection
 
     public String dbname(); // returns a string naming the database system implementing this interface
+
+    public void clear(); // clear out the database so it is fresh for running tests (not used in the benchmark)
 }
