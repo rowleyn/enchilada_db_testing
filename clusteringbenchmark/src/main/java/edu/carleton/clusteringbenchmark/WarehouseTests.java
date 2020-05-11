@@ -48,9 +48,14 @@ public class WarehouseTests {
     public static Collection createCollectionTest() {
         String dataType = db.getCollectionDatatype(0);
         int collectionid = db.createEmptyCollection(dataType, 0, "name", "comment", "description");
-        //write asserts for these
+
         assert db.getCollectionName(collectionid).equals("name");
-        assert db.getCollection(collectionid) != null; //unsure about how to test this
+
+        Collection test = db.getCollection(collectionid);
+        assert test.getName().equals("name");
+        assert test.getCollectionID() == 0;
+        assert test.getDatatype().equals(dataType);
+
         assert db.getCollectionSize(collectionid) == 1;
 
         return db.getCollection(collectionid);
