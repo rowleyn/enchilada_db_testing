@@ -17,14 +17,7 @@ public class MongoDBBenchmark implements DatabaseLoad {
     public void clear() {
         MongoClient mongoClient = MongoClients.create();
         MongoDatabase database = mongoClient.getDatabase("enchilada_benchmark");
-        MongoCollection<Document> metadata = database.getCollection("metadata");
-        MongoCollection<Document> collections = database.getCollection("collections");
-        MongoCollection<Document> atoms = database.getCollection("atoms");
-        MongoCollection<Document> pars = database.getCollection("pars");
-        metadata.drop();
-        collections.drop();
-        atoms.drop();
-        pars.drop();
+        database.drop();
     }
 
     public boolean insert(DataRead reader) {
@@ -83,7 +76,7 @@ public class MongoDBBenchmark implements DatabaseLoad {
         // build particle collection
         String particleCollectionName = reader.par.get("dbdatasetname") + "_particles";
         MongoCollection<Document> atoms = database.getCollection("atoms");
-        List atomids = new ArrayList();
+        List<Integer> atomids = new ArrayList<>();
 
         boolean moretoread = true;
         int setindex = 0;
@@ -124,7 +117,7 @@ public class MongoDBBenchmark implements DatabaseLoad {
         collectioninfo.put("_id", 0);
         collectioninfo.put("name", particleCollectionName);
         collectioninfo.put("datatype", "ATOFMS");
-        collectioninfo.put("atoms", atomids);
+        collectioninfo.put("atomids", atomids);
         collections.insertOne(collectioninfo);
 
         mongoClient.close();
