@@ -4,10 +4,7 @@ import edu.carleton.clusteringbenchmark.ATOFMS.ParticleInfo;
 import edu.carleton.clusteringbenchmark.analysis.BinnedPeakList;
 import edu.carleton.clusteringbenchmark.atom.ATOFMSAtomFromDB;
 import edu.carleton.clusteringbenchmark.collection.Collection;
-import edu.carleton.clusteringbenchmark.database.CassandraWarehouse;
-import edu.carleton.clusteringbenchmark.database.CollectionCursor;
-import edu.carleton.clusteringbenchmark.database.DynamicTable;
-import edu.carleton.clusteringbenchmark.database.InfoWarehouse;
+import edu.carleton.clusteringbenchmark.database.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,9 +30,9 @@ public class WarehouseTests {
     private static int peak2Height = 100;
 
     public static void main (String[]args) throws Exception {
-            db = new CassandraWarehouse();
+            db = new MongoWarehouse();
             db.clear();
-            createCollectionTest();
+            collectionTest();
             List<Integer> atomids = insertParticlesTest();
             bulkInsertTest(atomids);
             bulkDeleteTest(atomids);
@@ -43,22 +40,18 @@ public class WarehouseTests {
             colNamesTest();
             cursorTest();
             db.clear();
+            System.out.println("Test complete");
     }
 
-    public static Collection createCollectionTest() {
-        String dataType = db.getCollectionDatatype(0);
-        int collectionid = db.createEmptyCollection(dataType, 0, "name", "comment", "description");
-
+    public static void collectionTest() {
+        int collectionid = db.createEmptyCollection("ATOFMS", -1, "name", "comment", "description");
         assert db.getCollectionName(collectionid).equals("name");
-
+        assert db.getCollectionSize(collectionid) == 0;
         Collection test = db.getCollection(collectionid);
         assert test.getName().equals("name");
         assert test.getCollectionID() == 0;
-        assert test.getDatatype().equals(dataType);
-
-        assert db.getCollectionSize(collectionid) == 1;
-
-        return db.getCollection(collectionid);
+        assert test.getDatatype().equals("ATOFMS");
+        assert db.setCollectionDescription(test, "new description");
     }
 
     public static List<Integer> insertParticlesTest() {
@@ -68,7 +61,7 @@ public class WarehouseTests {
         sparseData.add(posPeakLocation2 + ", " +  peak2Height + ", 0.1, " + peak2Height);
         sparseData.add(negPeakLocation2 + ", " +  peak2Height + ", 0.1, " + peak2Height);
 
-        String denseData = dateString + "," + laserPower + "," + size + "," + scatterDelay + ", " + filename;
+        String denseData = dateString + ", " + laserPower + ", " + size + ", " + scatterDelay + ", " + filename;
 
         List<Integer> atomids = new ArrayList<>();
         int lastID = -1;
@@ -119,10 +112,9 @@ public class WarehouseTests {
 
     public static void centerAtomsTest() {
         int collectionid = db.createEmptyCollection("ATOFMS", -1, "name", "comment", "description");
-        boolean result = db.addCenterAtom(0, collectionid);
-        assert result;
-        result = db.addCenterAtom(0, 100);
-        assert !result;
+        assert collectionid == 2;
+        assert db.addCenterAtom(0, collectionid);
+        assert !db.addCenterAtom(0, 100);
     }
 
     public static void colNamesTest() {
@@ -141,6 +133,7 @@ public class WarehouseTests {
 
     public static void cursorTest() {
         int count;
+        // check atoms in collection 0 (created in collectionTest)
         CollectionCursor cursor = db.getAtomInfoOnlyCursor(db.getCollection(0));
         for (int i = 0; i < 2; i++) {
             count = 0;
@@ -162,7 +155,9 @@ public class WarehouseTests {
             assert count == NUM_PARTICLES;
             cursor.reset();
         }
+        cursor.close();
         count = 0;
+        // check atoms in collection 1 (created by bulkInsertTest and altered by bulkDeleteTest)
         cursor = db.getAtomInfoOnlyCursor(db.getCollection(1));
         while (cursor.next()) {
             count++;
@@ -180,7 +175,26 @@ public class WarehouseTests {
             assert peak2Height == sparse.getAreaAt(negPeakLocation2);
         }
         assert count == NUM_PARTICLES - 2;
-        cursor.reset();
+        cursor.close();
+        count = 0;
+        // check atoms in collection 2 (created by centerAtomsTest)
+        cursor = db.getAtomInfoOnlyCursor(db.getCollection(2));
+        while (cursor.next()) {
+            count++;
+            ParticleInfo info = cursor.getCurrent();
+            ATOFMSAtomFromDB dense = info.getATOFMSParticleInfo();
+            BinnedPeakList sparse = info.getBinnedList();
+            assert filename.equals(dense.getFilename());
+            assert dateString.equals(dense.getDateString());
+            assert laserPower == dense.getLaserPower();
+            assert size == dense.getSize();
+            assert scatterDelay == dense.getScatDelay();
+            assert peak1Height == sparse.getAreaAt(posPeakLocation1);
+            assert peak1Height == sparse.getAreaAt(negPeakLocation1);
+            assert peak2Height == sparse.getAreaAt(posPeakLocation2);
+            assert peak2Height == sparse.getAreaAt(negPeakLocation2);
+        }
+        assert count == 1;
         cursor.close();
     }
 }
