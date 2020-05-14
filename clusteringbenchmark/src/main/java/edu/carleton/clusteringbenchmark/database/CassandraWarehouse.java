@@ -175,6 +175,12 @@ public class CassandraWarehouse implements InfoWarehouse {
                     session.execute("INSERT INTO particles.collections (CollectionID, AtomID) VALUES (?,?)", CID, AID);
                     //ResultSet rs = session.execute("SELECT MAX(AtomID) from particles.collections");
                     //System.out.println(rs.all());
+                    ResultSet test = session.execute("SELECT * FROM particles.collections");
+                    System.out.println(test.all());
+                    session.execute("DELETE FROM particles.collections WHERE AtomId = "+ -1 + " AND CollectionID = "+ CID);
+                    test = session.execute("SELECT * FROM particles.collections");
+                    System.out.println(test.all());
+
                 }
                 else{
                     System.out.println("Association already exists");
@@ -298,9 +304,12 @@ public class CassandraWarehouse implements InfoWarehouse {
         }
         //System.out.println("id "+id);
         session.execute("INSERT INTO particles.collections (CollectionID, AtomId) Values(?, ?)", id, AtomId);
-        //if(AtomId == 0) {
-         //   session.execute("DELETE FROM particles.collections WHERE AtomId = "+ -1 + " AND CollectionID = "+ id);
-        //}
+            ResultSet test = session.execute("SELECT * FROM particles.collections");
+            System.out.println(test.all());
+            session.execute("DELETE FROM particles.collections WHERE AtomId = "+ -1 + " AND CollectionID = "+ id);
+            test = session.execute("SELECT * FROM particles.collections");
+            System.out.println(test.all());
+
         return AtomId;
     }
 
@@ -448,15 +457,21 @@ public class CassandraWarehouse implements InfoWarehouse {
                 System.out.println("applesauce");
                 return false;
             }*/
-            if(atoms.size() == 1){
-                int zero = atoms.pop().getInt(0);
-                if(zero == -1){
+
+            try {
+                if(atoms.empty()){
                     return false;
                 }
-            }
-            try {
-                if(atoms.isEmpty()){
-                    return false;
+                else if(atoms.size() == 1){
+                    Row thing = atoms.pop();
+                    int zero = thing.getInt(0);
+                    if(zero == -1){
+                        return false;
+                    }
+                    else {
+                        atoms.push(thing);
+                        return true;
+                    }
                 }
                 else{
                     return true;
@@ -472,7 +487,8 @@ public class CassandraWarehouse implements InfoWarehouse {
 
         @Override
         public ParticleInfo getCurrent() {
-
+            ResultSet before = session.execute("SELECT * FROM particles.collections");
+            System.out.println(before.all());
             try{
                 int atomID = atoms.pop().getInt(0);
                 ResultSet dense = session.execute("SELECT * FROM particles.dense WHERE atomID = "+ atomID);
