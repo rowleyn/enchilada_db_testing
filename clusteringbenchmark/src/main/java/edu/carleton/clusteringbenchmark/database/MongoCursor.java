@@ -9,6 +9,7 @@ import edu.carleton.clusteringbenchmark.atom.ATOFMSAtomFromDB;
 import edu.carleton.clusteringbenchmark.collection.Collection;
 import org.bson.Document;
 
+import java.text.SimpleDateFormat;
 import java.util.List;
 
 import static com.mongodb.client.model.Filters.*;
@@ -41,14 +42,16 @@ public class MongoCursor implements CollectionCursor {
     public ParticleInfo getCurrent() {
         Document dense = (Document)currentatom.get("densedata");
         ParticleInfo particleInfo = new ParticleInfo();
-        particleInfo.setParticleInfo(new ATOFMSAtomFromDB(
+        ATOFMSAtomFromDB atominfo = new ATOFMSAtomFromDB(
                 currentatom.getInteger("_id"),
                 dense.getString("specname"),
                 dense.getInteger("scatdelay"),
                 dense.getDouble("laserpower").floatValue(),
                 dense.getDate("time"),
-                dense.getDouble("size").floatValue()
-        ));
+                dense.getDouble("size").floatValue());
+        SimpleDateFormat dateformat = new SimpleDateFormat("''yyyy-MM-dd HH:mm:ss.S''");
+        atominfo.setDateString(dateformat.format(dense.getDate("time")));
+        particleInfo.setParticleInfo(atominfo);
         List<Document> sparse = currentatom.getList("sparsedata", Document.class);
         BinnedPeakList peaks = new BinnedPeakList();
         for (Document peak : sparse) {
