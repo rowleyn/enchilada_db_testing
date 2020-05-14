@@ -96,7 +96,7 @@ public class MongoWarehouse implements InfoWarehouse {
 
     public boolean setCollectionDescription(Collection collection, String description) {
         MongoCollection<Document> collections = db.getCollection("collections");
-        Document collectiondoc = collections.find(eq("_id", collection.getCollectionID())).projection(include("description")).first();
+        Document collectiondoc = collections.find(eq("_id", collection.getCollectionID())).first();
 
         if (collectiondoc != null) {
             collectiondoc.put("description", description);
