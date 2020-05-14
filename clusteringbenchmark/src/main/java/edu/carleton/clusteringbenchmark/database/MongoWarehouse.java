@@ -2,7 +2,6 @@ package edu.carleton.clusteringbenchmark.database;
 
 import com.mongodb.client.*;
 
-import com.mongodb.client.model.Projections;
 import static com.mongodb.client.model.Filters.*;
 import static com.mongodb.client.model.Projections.*;
 import static com.mongodb.client.model.Sorts.*;
@@ -13,10 +12,9 @@ import org.bson.Document;
 import edu.carleton.clusteringbenchmark.collection.Collection;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 public class MongoWarehouse implements InfoWarehouse {
 
@@ -27,6 +25,13 @@ public class MongoWarehouse implements InfoWarehouse {
     public MongoWarehouse() {
         MongoClient client = MongoClients.create();
         db = client.getDatabase("enchilada_benchmark");
+    }
+
+    public void clear() {
+        MongoCollection<Document> collections = db.getCollection("collections");
+        MongoCollection<Document> atoms = db.getCollection("atoms");
+        collections.drop();
+        atoms.drop();
     }
 
     public String dbname() {
@@ -65,7 +70,7 @@ public class MongoWarehouse implements InfoWarehouse {
         MongoCollection<Document> atoms = db.getCollection("atoms");
         Document collection = collections.find(eq("_id", collectionID)).projection(include("atomids")).first();
         if (collection != null) {
-            return (int)atoms.countDocuments(in("_id", collection.get("atomids")));
+            return (int)atoms.countDocuments(in("_id", collection.getList("atomids", Integer.class)));
         }
         else {
             ErrorLogger.writeExceptionToLogAndPrompt(dbname(),"Error retrieving the collection size for collectionID "+collectionID);
@@ -143,17 +148,24 @@ public class MongoWarehouse implements InfoWarehouse {
         }
 
         MongoCollection<Document> metadata = db.getCollection("metadata");
-        Document mdatadoc = metadata.find().projection(Projections.elemMatch("ATOFMS")).first();
-        Map mdatacollection = ((Map)((Map)mdatadoc.get("datatype")).get(collection));
+        Document mdatadoc = metadata.find().first();
+        if (mdatadoc != null) {
+            Map mdatacollection = ((Map)((Map)mdatadoc.get(datatype)).get(collection));
 
-        for (Object colname : mdatacollection.keySet()) {
-            nameandtype = new ArrayList<>();
-            nameandtype.add((String)colname);
-            nameandtype.add((String)mdatacollection.get(colname));
-            colnamesandtypes.add(nameandtype);
+            for (Object colname : mdatacollection.keySet()) {
+                nameandtype = new ArrayList<>();
+                nameandtype.add((String)colname);
+                nameandtype.add((String)mdatacollection.get(colname));
+                colnamesandtypes.add(nameandtype);
+            }
+
+            return colnamesandtypes;
         }
-
-        return colnamesandtypes;
+        else {
+            ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Error getting column names and types from metadata");
+            System.err.println("Error getting column names and types.");
+            return null;
+        }
     }
 
     public int getNextID() {
@@ -178,22 +190,31 @@ public class MongoWarehouse implements InfoWarehouse {
 
         MongoCollection<Document> atoms = db.getCollection("atoms");
 
+        SimpleDateFormat dateformat = new SimpleDateFormat("''yyyy-MM-dd HH:mm:ss.S''");
+
         Document densedoc = new Document();
         String[] denseparams = dense.split(", ");
-        densedoc.append("time", denseparams[0]);
-        densedoc.append("laserpower", denseparams[1]);
-        densedoc.append("size", denseparams[2]);
-        densedoc.append("scatdelay", denseparams[3]);
+        try {
+            densedoc.append("time", dateformat.parse(denseparams[0]));
+        }
+        catch (ParseException e) {
+            ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Failed to parse datestring during particle insert.");
+            System.err.println("Datestring parse failed.");
+            return -1;
+        }
+        densedoc.append("laserpower", Float.parseFloat(denseparams[1]));
+        densedoc.append("size", Float.parseFloat(denseparams[2]));
+        densedoc.append("scatdelay", Integer.parseInt(denseparams[3]));
         densedoc.append("specname", denseparams[4]);
 
         List<Document> sparsedoc = new ArrayList<>();
         for (String sparsestr : sparse) {
             String[] sparseparams = sparsestr.split(", ");
             Document sparseentry = new Document();
-            sparseentry.append("masstocharge", sparseparams[0]);
-            sparseentry.append("area", sparseparams[1]);
-            sparseentry.append("relarea", sparseparams[2]);
-            sparseentry.append("height", sparseparams[3]);
+            sparseentry.append("masstocharge", Double.parseDouble(sparseparams[0]));
+            sparseentry.append("area", Integer.parseInt(sparseparams[1]));
+            sparseentry.append("relarea", Float.parseFloat(sparseparams[2]));
+            sparseentry.append("height", Integer.parseInt(sparseparams[3]));
             sparsedoc.add(sparseentry);
         }
 
@@ -285,8 +306,7 @@ public class MongoWarehouse implements InfoWarehouse {
             List<Integer> atomids = collectiondoc.getList("atomids", Integer.class);
             Scanner deleteids = new Scanner(atomIDsToDelete.toString()).useDelimiter(",");
             while (deleteids.hasNext()) {
-                int nextid = Integer.parseInt(deleteids.next());
-                atomids.remove(nextid);
+                atomids.remove(Integer.valueOf(Integer.parseInt(deleteids.next())));
             }
             collectiondoc.put("atomids", atomids);
             collections.replaceOne(eq("_id", collection.getCollectionID()), collectiondoc);
