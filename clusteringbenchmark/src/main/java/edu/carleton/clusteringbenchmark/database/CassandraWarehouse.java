@@ -2,20 +2,33 @@ package edu.carleton.clusteringbenchmark.database;
 
 import com.datastax.driver.core.*;
 
+import com.mongodb.client.MongoCollection;
 import edu.carleton.clusteringbenchmark.ATOFMS.ParticleInfo;
+import edu.carleton.clusteringbenchmark.analysis.BinnedPeakList;
+import edu.carleton.clusteringbenchmark.atom.ATOFMSAtomFromDB;
 import edu.carleton.clusteringbenchmark.collection.Collection;
 import edu.carleton.clusteringbenchmark.errorframework.ErrorLogger;
 import org.apache.cassandra.exceptions.CassandraException;
+import org.bson.Document;
 
 import javax.xml.transform.Result;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.math.BigDecimal;
+import java.sql.Array;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.*;
+
+import static com.mongodb.client.model.Filters.eq;
+import static java.util.Arrays.asList;
 
 public class CassandraWarehouse implements InfoWarehouse {
     protected String url;
@@ -57,22 +70,24 @@ public class CassandraWarehouse implements InfoWarehouse {
     public String getCollectionName(int collectionID) {
         //String id = String.valueOf(collectionID);
         ResultSet rss = session.execute("SELECT name from particles.collections WHERE CollectionID = " + collectionID + "");
-        return rss.toString();
+        return rss.one().getString(0);
     }
 
 
     @Override
     public int getCollectionSize(int collectionID) {
         try {
-            //String id = String.valueOf(collectionID);
-            ResultSet rss = session.execute("SELECT * FROM particles.collections WHERE collectionID = " + collectionID);
-            if (rss != null) {
-                //rss = session.execute("Select Count(CollectionId) from particles.collections where collectionID =\'" + id + "\'");
-                rss = session.execute("Select MAX(AtomID) from particles.collections where collectionID =" + collectionID );
+            ResultSet rs = session.execute("SELECT * FROM particles.collections WHERE collectionID = " + collectionID);
+            if (rs != null) {
+                ResultSet rss = session.execute("Select MAX(AtomID) from particles.collections where collectionID =" + collectionID );
 
                 Row result = rss.one();
                 int val = result.getInt(0);
-                return (int) val;
+               // System.out.println("Val "+ val);
+                return val +1;
+            }
+            else{
+                return -1;
             }
         } catch (Exception e) {
             ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Error retrieving the collection size for collectionID " + collectionID);
@@ -84,12 +99,21 @@ public class CassandraWarehouse implements InfoWarehouse {
 
     @Override
     public int createEmptyCollection(String datatype, int parent, String name, String comment, String description) {
-        ResultSet rss = session.execute(("SELECT MAX(CollectionId) from particles.collections"));
-        Row result = rss.one();
-        int max = result.getInt(0);
+        ResultSet rs = session.execute("SELECT * FROM particles.collections LIMIT 1");
+        int nextID;
+        int max;
+        if(rs.one() == null){
+            nextID = 0;
+        }
+        else {
+            ResultSet rss = session.execute(("SELECT MAX(CollectionId) from particles.collections"));
+            Row result = rss.one();
+            max = result.getInt(0);
+            nextID = max +1;
+        }
         session.execute("INSERT INTO particles.collections (CollectionID , parent, Name , Comment , Description , Datatype, AtomID) Values(?,?,?,?,?,?,?)",
-                max, parent, name, comment, description, datatype, 0);
-        return (int) max;
+                nextID, parent, name, comment, description, datatype, -1);
+        return nextID;
     }
 
     @Override
@@ -138,13 +162,14 @@ public class CassandraWarehouse implements InfoWarehouse {
             Scanner myReader = new Scanner(bulkInsertFile);
             while (myReader.hasNextLine()) {
                 String data = myReader.nextLine();
-                System.out.println(data);
                 String[] line = data.split(",");
                 int CID = Integer.parseInt(line[0]);
                 int AID = Integer.parseInt(line[1]);
                 ResultSet exists = session.execute("SELECT * FROM particles.collections WHERE CollectionID = "+CID+" AND AtomID = "
                         + AID );
+
                 if(exists.one() == null) {
+                    //System.out.println(CID + " "+AID);
                     //ResultSet rs1 = session.execute("SELECT * from particles.collections");
                     //System.out.println(rs1.all());
                     session.execute("INSERT INTO particles.collections (CollectionID, AtomID) VALUES (?,?)", CID, AID);
@@ -158,7 +183,7 @@ public class CassandraWarehouse implements InfoWarehouse {
 
             System.out.println("Time: " + (System.currentTimeMillis()-time));
             System.out.println("done with updating, time = " + (System.currentTimeMillis()-time));
-
+            return;
         } catch (Exception e) {
             System.out.println("Error executing bulk insert");
             e.printStackTrace();
@@ -169,14 +194,19 @@ public class CassandraWarehouse implements InfoWarehouse {
 
     @Override
     public void bulkDelete(StringBuilder atomIDsToDelete, Collection collection) throws Exception {
+        Scanner deleteids = new Scanner(atomIDsToDelete.toString()).useDelimiter(",");
+        int id = collection.getCollectionID();
+        while(deleteids.hasNext()){
+            int nextid = Integer.parseInt(deleteids.next());
+            session.execute("DELETE FROM particles.collections WHERE AtomID = " + nextid + " AND CollectionId = " + id);
+        }
 
     }
 
 
-
     @Override
     public CollectionCursor getAtomInfoOnlyCursor(Collection collection) {
-        return new AtomInfoOnlyCursor(collection);
+        return new CassandraCursor(collection);
     }
 
     //assuming subCollectionNum is CollectionID?
@@ -192,19 +222,43 @@ public class CassandraWarehouse implements InfoWarehouse {
             String dtable = null;
             if (table == DynamicTable.AtomInfoSparse) {
                 dtable = "sparse";
+                String[] temp1 = {"masstocharge", "REAL", "area", "INT", "relarea", "REAL", "height", "INT"};
+                ArrayList<ArrayList<String>> result = new ArrayList<>();
+                ArrayList<String> temp2;
+                for (int i = 0; i < temp1.length; i = i + 2) {
+                    temp2 = new ArrayList<>();
+                    temp2.add(temp1[i]);
+                    temp2.add(temp1[i + 1]);
+                    result.add(temp2);
+                }
+                return result;
             } else if (table == DynamicTable.AtomInfoDense) {
                 dtable = "dense";
+                String[] temp1 = {"time", "DATETIME", "laserpower", "REAL", "size", "REAL", "scatdelay", "INT", "specname", "VARCHAR(8000)"};
+                ArrayList<ArrayList<String>> result = new ArrayList<>();
+                ArrayList<String> temp2;
+                for (int i = 0; i < temp1.length; i = i + 2) {
+                    temp2 = new ArrayList<>();
+                    temp2.add(temp1[i]);
+                    temp2.add(temp1[i + 1]);
+                    result.add(temp2);
+                }
+                return result;
             }
+            //Metadata version
+            /**
             Metadata metadata = cluster.getMetadata();
             List<ColumnMetadata> columns = metadata.getKeyspace("particles").getTable(dtable).getColumns();
             ArrayList<ArrayList<String>> colNames = new ArrayList<ArrayList<String>>();
+
             ArrayList<String> temp;
             for(int i = 0; i<columns.size(); i++) {
                 temp = new ArrayList<String>();
                 temp.add(columns.get(i).getName());
                 temp.add(columns.get(i).getType().toString());
                 colNames.add(temp);
-            }
+            }*/
+
         } catch(Exception e)
         {
             ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Exception retrieving column names.");
@@ -217,20 +271,37 @@ public class CassandraWarehouse implements InfoWarehouse {
     @Override
     public int insertParticle(String dense, ArrayList<String> sparse, Collection collection, int nextID) {
         int id = collection.getCollectionID();
-        ResultSet rss = session.execute("SELECT MAX(AtomID) FROM particles.collections WHERE CollectionID = "+id);
-        Row result = rss.one();
-        int AtomId = result.getInt(0) + 1;
-        String[] denseSplit = dense.split(",");
-        session.executeAsync("INSERT INTO particles.dense (name, time, laserpower, size, scatdelay, specname) Values (?, ?, ?, ?, ?, ?, ?)",
-                AtomId,  denseSplit[0], denseSplit[1], denseSplit[2], denseSplit[3], denseSplit[4]);
-        for(int i =0; i <sparse.size(); i++){
-            String[] sparseSplit = sparse.get(i).split(",");
-            session.executeAsync("INSERT INTO particles.sparse (AtomID, area, relarea, masstocharge, height) Values (?, ?, ?, ?, ?, ?)",
-                    AtomId, sparseSplit[0], sparseSplit[1], sparseSplit[2], sparseSplit[3]);
-        }
-        session.executeAsync("INSERT INTO particles.collections (CollectionID, AtomId) Values(?, ?, ?)", id, AtomId);
 
-        return 0;
+        int AtomId = nextID;
+        String[] denseSplit = dense.split(", ");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("''yyyy-MM-dd HH:mm:ss.S''");
+        //DateFormat dateFormat = DateFormat.getDateInstance();
+        try {
+            Date date5 = dateFormat.parse(denseSplit[0]);
+            LocalDate date = LocalDate.fromDaysSinceEpoch((int) date5.getTime());
+        session.execute("INSERT INTO particles.dense (time, laserpower, size, scatdelay, specname, atomID) Values (?, ?, ?, ?, ?, ?)",
+                date5, denseSplit[1], denseSplit[2], denseSplit[3], denseSplit[4], AtomId);
+        }
+        catch (ParseException e){
+            ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Failed to parse datestring during particle insert.");
+            System.err.println("Datestring parse failed.");
+            return -1;
+        }
+        for (String sparsestr : sparse) {
+            String[] sparseparams = sparsestr.split(", ");
+            String mtc = sparseparams[0];
+            String area = sparseparams[1];
+            String relarea = sparseparams[2];
+            String height = sparseparams[3];
+            session.execute("INSERT INTO particles.sparse (area, relarea, masstocharge, height, AtomID) Values (?, ?, ?, ?, ?)",
+                    area, relarea, mtc, height, String.valueOf(AtomId));
+        }
+        //System.out.println("id "+id);
+        session.execute("INSERT INTO particles.collections (CollectionID, AtomId) Values(?, ?)", id, AtomId);
+        //if(AtomId == 0) {
+         //   session.execute("DELETE FROM particles.collections WHERE AtomId = "+ -1 + " AND CollectionID = "+ id);
+        //}
+        return AtomId;
     }
 
     @Override
@@ -239,6 +310,8 @@ public class CassandraWarehouse implements InfoWarehouse {
         //Note for if this fails later: CQL query using the MAX function returns resultset with rows.size=1 if data is not found. And Row has only null values.
         try {
             int nextID;
+            //ResultSet rss = session.execute("SELECT * FROM particles.collections");
+            //System.out.println(rss.all());
             ResultSet rs = session.execute("SELECT MAX(AtomID) FROM particles.collections");
             Row result =  rs.one();
             if(result.isNull(0)){
@@ -246,7 +319,6 @@ public class CassandraWarehouse implements InfoWarehouse {
             }
             else {
                 int test = result.getInt(0);
-                //int result = rs.getAvailableWithoutFetching();
                 nextID = test + 1;
             }
             return nextID;
@@ -261,10 +333,27 @@ public class CassandraWarehouse implements InfoWarehouse {
     @Override
     public boolean addCenterAtom(int centerAtomID, int centerCollID) {
         try {
-            Number AtomID = (Number) centerAtomID;
-            Number collID = (Number) centerCollID;
-            session.execute("INSERT INTO particles.centeratoms (AtomID, CollectionID) VALUES (?, ?)", AtomID.toString(), collID.toString());
-            return true;
+            ResultSet exists = session.execute("SELECT * FROM particles.collections WHERE collectionID = " +centerCollID);
+            //System.out.println("Exists " + exists.one());
+            if(exists.one() != null) {
+                Number AtomID = (Number) centerAtomID;
+                Number collID = (Number) centerCollID;
+                //System.out.println(AtomID +" "+collID);
+
+                session.execute("INSERT INTO particles.centeratoms (AtomID, CollectionID) VALUES (?, ?)", AtomID.toString(), collID.toString());
+                session.execute("INSERT INTO particles.collections (AtomID, CollectionID) VALUES (?, ?)", (int)AtomID, (int)collID);
+
+                //ResultSet test = session.execute("SELECT * FROM particles.collections WHERE CollectionID = " + (int)collID);
+                //System.out.println("HERE LOOK HERE "+ test.all());
+
+                //if(centerAtomID == 0) {
+                //    session.execute("DELETE FROM particles.collections WHERE AtomId = "+ -1 + " AND CollectionID = "+ (int)collID);
+                //}
+                return true;
+            }
+            else{
+                return false;
+            }
         } catch (Exception e){
             ErrorLogger.writeExceptionToLogAndPrompt(dbname(),"Error adding center atom");
             System.err.println("Error adding center atom");
@@ -277,13 +366,15 @@ public class CassandraWarehouse implements InfoWarehouse {
     public boolean setCollectionDescription(Collection collection, String description) {
         try {
             int id = collection.getCollectionID();
-            ResultSet r1 = session.execute("SELECT name FROM particles.collections WHERE CollectionID = \'" + id + "\'");
-
-            session.execute("UPDATE particles.collections SET description = \'"
-                    + "hello" + "\' WHERE CollectionID =  0  AND name = \'"+ r1+"\'");
-
-            session.execute("UPDATE particles.collections SET description = \'"
-                    + description + "\' WHERE CollectionID = \'" + id + "\'");
+            //ResultSet r1 = session.execute("SELECT name FROM particles.collections WHERE CollectionID = " + id );
+            String name = getCollectionName(id);
+            ResultSet atomIDs = session.execute("SELECT AtomID FROM particles.collections WHERE collectionID =" + collection.getCollectionID());
+            List<Row> atomlist = new ArrayList<Row>();
+            atomlist = atomIDs.all();
+            for(Row atom : atomlist) {
+                session.execute("UPDATE particles.collections SET description = \'"
+                        + description + "\' WHERE CollectionID = " + id + " AND AtomID = "+ atom.getInt(0));
+            }
         } catch (Exception e){
             ErrorLogger.writeExceptionToLogAndPrompt(dbname(),"Exception updating collection description.");
             System.err.println("Error updating collection " +
@@ -300,32 +391,33 @@ public class CassandraWarehouse implements InfoWarehouse {
         return "Cassandra";
     }
 
+    @Override
+    public void clear() {
+        session.execute("TRUNCATE particles.collections");
+        session.execute("TRUNCATE particles.dense");
+        session.execute("TRUNCATE particles.sparse");
+        session.execute("TRUNCATE particles.centeratoms");
+        session.execute("TRUNCATE pars.par");
+
+    }
+
 
     /**
      * AtomInfoOnly cursor.  Returns atom info.
      */
-    private class AtomInfoOnlyCursor implements CollectionCursor {
+    private class CassandraCursor implements CollectionCursor {
         protected ResultSet rs;
-        protected java.sql.ResultSet partInfRS = null;
+        protected ResultSet partInfRS = null;
         protected java.sql.Statement stmt = null;
         Collection collection;
+        ResultSet atomIDs = null;
+        Stack<Row> atoms = new Stack<>();
 
-        public AtomInfoOnlyCursor(Collection col) {
-            super();
-            assert (col.getDatatype().equals("ATOFMS")) : "Wrong datatype for cursor.";
+        public CassandraCursor(Collection col) {
             collection = col;
-
-            ResultSet q = session.execute("SELECT \'" + getDynamicTableName(DynamicTable.AtomInfoDense, collection.getDatatype()) + "\'.AtomID, OrigFilename, ScatDelay," +
-                    " LaserPower, [Time], Size FROM \'" + getDynamicTableName(DynamicTable.AtomInfoDense, collection.getDatatype()) + "\', InternalAtomOrder WHERE" +
-                    " InternalAtomOrder.CollectionID = " + collection.getCollectionID() +
-                    " AND \'" + getDynamicTableName(DynamicTable.AtomInfoDense, collection.getDatatype()) + "\'.AtomID = InternalAtomOrder.AtomID");
-            System.out.println(q.toString());
-            try {
-                partInfRS = stmt.executeQuery(q.toString());
-            } catch (SQLException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+            int id = col.getCollectionID();
+            partInfRS = session.execute("SELECT * FROM particles.collections WHERE collectionID = " + id);
+            reset();
         }
 
         /**
@@ -350,21 +442,102 @@ public class CassandraWarehouse implements InfoWarehouse {
 
         @Override
         public boolean next() {
-            return false;
+            /**
+            ResultSet one = session.execute("SELECT * FROM particles.collections LIMIT 1");
+            if(one.one() == null){
+                System.out.println("applesauce");
+                return false;
+            }*/
+            if(atoms.size() == 1){
+                int zero = atoms.pop().getInt(0);
+                if(zero == -1){
+                    return false;
+                }
+            }
+            try {
+                if(atoms.isEmpty()){
+                    return false;
+                }
+                else{
+                    return true;
+                }
+            } catch (Exception e) {
+                System.err.println("Error checking the " +
+                        "bounds of " +
+                        "the ResultSet.");
+                e.printStackTrace();
+                return false;
+            }
         }
 
         @Override
         public ParticleInfo getCurrent() {
-            return null;
+
+            try{
+                int atomID = atoms.pop().getInt(0);
+                ResultSet dense = session.execute("SELECT * FROM particles.dense WHERE atomID = "+ atomID);
+                Row densething = dense.one();
+                if(densething!=null) {
+                    String specname = densething.getString(5);
+                    String scatdelay = densething.getString(3);
+                    String laserpower = densething.getString(2);
+                    Date time = densething.getTimestamp(6);
+                    SimpleDateFormat formatter5 = new SimpleDateFormat("''yyyy-MM-dd hh:mm:ss.S''");
+                    String date = formatter5.format(time);
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("''yyyy-MM-dd HH:mm:ss.S''");
+                    Date date5 = dateFormat.parse(date);
+                    String size = densething.getString(4);
+                    ATOFMSAtomFromDB atominfo = new ATOFMSAtomFromDB(atomID,
+                            specname,
+                            Integer.parseInt(scatdelay),
+                            (Float.parseFloat(laserpower)),
+                            date5,
+                            Float.valueOf(size));
+                    atominfo.setDateString(date);
+                    ParticleInfo particleInfo = new ParticleInfo();
+                    particleInfo.setParticleInfo(atominfo);
+
+
+
+                    ResultSet sparseMass = session.execute("SELECT masstocharge FROM particles.sparse WHERE atomID = \'" + atomID + "\'");
+                    BinnedPeakList peaks = new BinnedPeakList();
+                    while (!sparseMass.isExhausted()) {
+                        String mass = sparseMass.one().getString(0);
+                        ResultSet sparseArea = session.execute("SELECT area FROM particles.sparse WHERE masstocharge = \'" + mass + "\' AND atomID = \'" + atomID + "\'");
+                        String area = sparseArea.one().getString(0);
+                        peaks.add(Integer.parseInt(mass), Integer.parseInt(area));
+                    }
+                    particleInfo.setBinnedList(peaks);
+                    particleInfo.setID(particleInfo.getATOFMSParticleInfo().getAtomID());
+                    //System.out.println(atoms);
+                    return particleInfo;
+                }
+                else{
+                    System.out.println("Empty row");
+                    return null;
+                }
+            } catch (Exception e) {
+                System.err.println("Error retrieving the " +
+                        "next row");
+                e.printStackTrace();
+                return null;
+            }
         }
 
         @Override
         public void close() {
-
+            atoms.clear();
         }
 
         @Override
         public void reset() {
+            atomIDs = session.execute("SELECT AtomID FROM particles.collections WHERE collectionID =" + collection.getCollectionID());
+            List<Row> atomlist = new ArrayList<Row>();
+            atomlist = atomIDs.all();
+            atoms.addAll(atomlist);
+            ResultSet collections = session.execute("SELECT * FROM particles.collections WHERE collectionID =" + collection.getCollectionID());
+            //System.out.println("applesauce");
+            //System.out.println(collections.all());
 
         }
     }
