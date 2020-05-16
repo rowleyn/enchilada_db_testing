@@ -30,8 +30,14 @@ public class WarehouseTests {
     private static int peak2Height = 100;
 
     public static void main (String[]args) throws Exception {
-            db = new MongoWarehouse();
+
+            //db = new MongoWarehouse();
             //db = new PostgreSQLWarehouse();
+            //db = new MongoWarehouse();
+            db = new CassandraWarehouse();
+
+            //db = new MongoWarehouse();
+            db = new CassandraWarehouse();
             db.clear();
             collectionTest();
             List<Integer> atomids = insertParticlesTest();
@@ -137,9 +143,11 @@ public class WarehouseTests {
         int count;
         // check atoms in collection 0 (created in collectionTest)
         CollectionCursor cursor = db.getAtomInfoOnlyCursor(db.getCollection(0));
+
         for (int i = 0; i < 2; i++) {
             count = 0;
             while (cursor.next()) {
+
                 count++;
                 ParticleInfo info = cursor.getCurrent();
                 ATOFMSAtomFromDB dense = info.getATOFMSParticleInfo();

@@ -51,11 +51,6 @@ public class CassandraWarehouse implements InfoWarehouse {
     }
 
     @Override
-    public void clear() {
-
-    }
-
-    @Override
     public Collection getCollection(int collectionID) {
         try {
             //String id = String.valueOf(collectionID);
@@ -470,7 +465,6 @@ public class CassandraWarehouse implements InfoWarehouse {
                     particleInfo.setParticleInfo(atominfo);
 
 
-                    ResultSet sparse = session.execute("SELECT * FROM particles.dense WHERE atomID = " + atomID + "");
                     ResultSet sparseMass = session.execute("SELECT masstocharge FROM particles.sparse WHERE atomID = \'" + atomID + "\'");
                     BinnedPeakList peaks = new BinnedPeakList();
                     Row curMass = sparseMass.one();

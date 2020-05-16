@@ -124,7 +124,6 @@ public abstract class ClusterK extends Cluster {
 		numParticles = db.getCollectionSize(collectionID);
 
 		centroidList = processPart(centroidList, curs);
-
 		System.out.println("returning");
 
 		returnThis =

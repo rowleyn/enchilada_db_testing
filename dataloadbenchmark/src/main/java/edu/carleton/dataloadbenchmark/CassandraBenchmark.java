@@ -5,10 +5,12 @@ import com.datastax.driver.core.*;
 import static java.lang.System.out;
 import com.datastax.driver.core.Cluster;
 import org.apache.cassandra.exceptions.CassandraException;
+import java.text.DateFormat;
 
 import javax.xml.transform.Result;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class CassandraBenchmark implements DatabaseLoad {
@@ -18,7 +20,6 @@ public class CassandraBenchmark implements DatabaseLoad {
             cluster = Cluster.builder()
                     .addContactPoint("127.0.0.1")
                     .withProtocolVersion(ProtocolVersion.V3)
-                    //.addContactPoints(InetAddress.getLocalHost())
                     .withoutJMXReporting()
                     .build();
             Session session = cluster.connect();
@@ -30,8 +31,8 @@ public class CassandraBenchmark implements DatabaseLoad {
             session.execute(drop);
             drop = "DROP TABLE IF EXISTS particles.sparse";
             session.execute(drop);
-        //} catch (UnknownHostException e) {
-          //  e.printStackTrace();
+            drop = "DROP TABLE IF EXISTS particles.centeratoms";
+            session.execute(drop);
         } finally {
             if (cluster != null) cluster.close();
         }
@@ -69,52 +70,58 @@ public class CassandraBenchmark implements DatabaseLoad {
             session.execute(createKeySpace);
 
 
-           // String createParticleCql =
-            //        " CREATE TABLE particles.particle (name varchar, dbdatasetname varchar, sparse list<frozen<map<text, int>>>, dense list<text>, PRIMARY KEY (name))";
-            //session.execute(createParticleCql);
-
-            session.execute("CREATE TABLE particles.dense (name varchar, dbdatasetname varchar, time int, laserpower decimal," +
-                                    " size decimal, scatdelay int, specname varchar, PRIMARY KEY (name))");
+            session.execute("CREATE TABLE particles.dense (dbdatasetname varchar, time timestamp, laserpower varchar," +
+                                    " size varchar, scatdelay varchar, specname varchar, AtomID int, PRIMARY KEY (AtomID))");
 
             //Assuming masstocharge represents location
-            session.execute("CREATE TABlE particles.sparse (name varchar, dbdatasetname varchar, area int, relarea decimal," +
-                    "masstocharge double, height double, PRIMARY KEY (name, masstocharge))");
+            session.execute("CREATE TABlE particles.sparse (dbdatasetname varchar, area varchar, relarea varchar, " +
+                    "masstocharge varchar, height varchar, AtomID varchar, PRIMARY KEY (AtomID, masstocharge))");
 
-            session.execute("CREATE TABLE particles.collections (CollectionID int, Parent int, Name varchar, Comment varchar, Description varchar, Datatype varchar, AtomID int, PRIMARY KEY (CollectionId, Name))");
-            //session.execute("CREATE TABLE particles.collections (parID varchar, collectionID varchar, PRIMARY KEY (parID, collectionID))");
+            session.execute("CREATE TABLE particles.collections (CollectionID int, Parent int, Name varchar, Comment varchar, Description varchar, Datatype varchar, AtomID int, PRIMARY KEY (CollectionId, AtomID))");
 
+            session.execute("CREATE TABLE particles.centeratoms (AtomID varchar, CollectionID varchar, PRIMARY KEY(CollectionID, AtomID))");
 
             boolean moretoread = true;
             int setindex = 0;
             int v = 0;
             String particleCollectionName = reader.par.get("dbdatasetname") + "_particles";
+            PreparedStatement query = session.prepare("INSERT INTO particles.sparse (dbdatasetname, area, relarea, masstocharge, height, AtomID) Values (?, ?, ?, ?, ?, ?)");
             while(moretoread) {
+                System.out.println("HELLO KELSEY ALL IS WELL");
                 List data = reader.readNSpectraFrom(1, setindex);
                 setindex = (int)data.get(data.size() - 1);
-
                 for (int i = 0; i < data.size() - 1; i++) {
                     if(((Map)data.get(i)).get("name") == null){ break;}
                     List<Map> sparse = (List<Map>)((Map)data.get(i)).get("sparse");
                     Map<String, Integer> dense = (Map)((Map)data.get(i)).get("dense");
-                    Date time = (Date)((Map)((Map)data.get(i)).get("dense")).get("time");
-                    Float laserpower= (Float)((Map)((Map)data.get(i)).get("dense")).get("laserpower");
-                    Float size = (Float) ((Map)((Map)data.get(i)).get("dense")).get("size");
-                    int scatdelay = (int) ((Map)((Map)data.get(i)).get("dense")).get("scatdelay");
+                    Date date = (Date) ((Map) ((Map) data.get(i)).get("dense")).get("time");
+                    //DateFormat dateFormat = new SimpleDateFormat("'MM-dd-yyyy HH:mm:ss'");
+                    //String strDate = dateFormat.format(date);
+                    String laserpower= ((Map)((Map)data.get(i)).get("dense")).get("laserpower").toString();
+                    String size =  ((Map)((Map)data.get(i)).get("dense")).get("size").toString();
+                    String scatdelay =  ((Map)((Map)data.get(i)).get("dense")).get("scatdelay").toString();
                     String specname = (String) ((Map)((Map)data.get(i)).get("dense")).get("specname");
-                    session.executeAsync("INSERT INTO particles.dense (name, dbdatasetname, time, laserpower, size, scatdelay, specname) Values (?, ?, ?, ?, ?, ?, ?)",
-                            ((Map)data.get(i)).get("name"), dbdatasetname, LocalDate.fromMillisSinceEpoch(time.getTime()), laserpower, size, scatdelay, specname);
-                    /**
-                    for(int j = 0; j <sparse.size(); j++){
-                        int area = (int) sparse.get(j).get("area");
-                        Float relarea = (Float) sparse.get(j).get("relarea");
-                        Double masstocharge = (Double) sparse.get(j).get("masstocharge");
-                        Double height = (Double) sparse.get(j).get("masstocharge");
-                        session.executeAsync("INSERT INTO particles.sparse (name, dbdatasetname, area, relarea, masstocharge, height) Values (?, ?, ?, ?, ?, ?)",
-                               ((Map)data.get(i)).get("name"), dbdatasetname, area, relarea, masstocharge, height);
-                        System.out.println(masstocharge);
-                    }*/
+                    session.executeAsync("INSERT INTO particles.dense (dbdatasetname, time, laserpower, size, scatdelay, specname, AtomID) Values (?, ?, ?, ?, ?, ?, ?)",
+                            dbdatasetname, date, laserpower, size, scatdelay, specname, v);
+                    int k = 0;
 
-                    session.executeAsync("INSERT INTO particles.collections (CollectionID, name, AtomId) Values(?, ?, ?)", "0", particleCollectionName, v);
+                    for(int j = 0; j <sparse.size(); j++){
+                    //for(int j = 0; j <2; j++){
+                        int area = (int) sparse.get(j).get("area");
+                        String relarea = sparse.get(j).get("relarea").toString();
+                        String masstocharge = sparse.get(j).get("masstocharge").toString();
+                        String height =  sparse.get(j).get("masstocharge").toString();
+
+                        BatchStatement batch = new BatchStatement(BatchStatement.Type.UNLOGGED).add(query.bind(dbdatasetname, String.valueOf(area), relarea, masstocharge, height, String.valueOf(v)));
+                        if(k >=500){
+                            session.execute(batch);
+
+                            k =0;
+                        }
+                        else{k++;}
+
+                    }
+                    session.executeAsync("INSERT INTO particles.collections (CollectionID, name, AtomId) Values(?, ?, ?)", 0, particleCollectionName, v);
                     v++;
 
                 }
@@ -128,17 +135,7 @@ public class CassandraBenchmark implements DatabaseLoad {
             System.out.println(row.getString("release_version"));
             String collectionID = "particles.dense";
 
-            //ResultSet r1 = session.execute("SELECT name FROM particles.collections WHERE CollectionID = 0");
-
-            //session.execute("UPDATE particles.collections SET description = \'"
-             //       + "hello" + "\' WHERE CollectionID =  0  AND name = \'"+ r1+"\'");
-
-            //ResultSet rss = session.execute("SELECT description FROM particles.collections WHERE CollectionId = 0");
-
-            String id = particleCollectionName;
-
-            ResultSet rss = session.execute("SELECT * FROM particles.collections WHERE collectionID = \'" + id+"\'");
-
+            ResultSet rss = session.execute("SELECT MAX(AtomID) FROM particles.collections");
             System.out.println(rss.all());
 
 

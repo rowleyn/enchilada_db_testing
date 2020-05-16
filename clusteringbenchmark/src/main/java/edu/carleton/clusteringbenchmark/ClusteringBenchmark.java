@@ -24,6 +24,7 @@ public class ClusteringBenchmark {
         //dbs.add(new MongoWarehouse());
         //dbs.add(new SQLWarehouse());
         dbs.add(new PostgreSQLWarehouse());
+        dbs.add(new CassandraWarehouse());
 
         // Perform benchmarks
         for (InfoWarehouse db : dbs) {
