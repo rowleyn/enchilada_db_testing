@@ -1,1 +1,0 @@
-PostgreSQL: 131204 milliseconds
