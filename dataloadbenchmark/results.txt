@@ -1,2 +1,0 @@
-SQLExpress: 167241 milliseconds
-postgresSQL: 149935 milliseconds
