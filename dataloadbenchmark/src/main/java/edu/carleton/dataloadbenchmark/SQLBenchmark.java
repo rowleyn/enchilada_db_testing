@@ -1,20 +1,13 @@
 package edu.carleton.dataloadbenchmark;
 
-import jdk.nashorn.internal.runtime.Debug;
-import org.bson.Document;
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.*;
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Date;
 
 public class SQLBenchmark implements DatabaseLoad {
@@ -23,8 +16,10 @@ public class SQLBenchmark implements DatabaseLoad {
     private ArrayList<Integer> alteredCollections;
     private PrintWriter bulkInsertFileWriterSparse;
     private PrintWriter bulkInsertFileWriterDense;
+    private PrintWriter bulkInsertFileWriterAtomMembership;
     private File bulkInsertFileSparse;
     private File bulkInsertFileDense;
+    private File bulkInsertFileAtomMembership;
 
     public void clear(){
         //Drop the db if it exists and create a new one
@@ -119,7 +114,7 @@ public class SQLBenchmark implements DatabaseLoad {
                     int scatDelay = (int)dense.get("scatdelay");
                     String name = (String)dense.get("specname");
                     //spectra.add(new Document(spectrum));
-                    System.out.println(name);
+                    //System.out.println(name);
                     //System.out.println(strDate);
                     pst = conn.prepareStatement("INSERT INTO ATOFMSAtomInfoDense VALUES ("+ Integer.toString(currentAtomID) + ", '" + strDate + "', " + Float.toString(laserpower) + ", " + Float.toString(size) + ", " + Integer.toString(scatDelay) + ", '" + name +"')");
                     pst.execute();
@@ -173,16 +168,20 @@ public class SQLBenchmark implements DatabaseLoad {
             Class.forName(driver);
             conn = DriverManager.getConnection(url, userName, password);
             //Create tables
-            pst = conn.prepareStatement("CREATE TABLE ATOFMSAtomInfoSparse (AtomID INT, PeakLocation FLOAT, PeakArea INT, RealPeakArea FLOAT, PeakHeight INT, PRIMARY KEY (AtomID, PeakLocation));");
-            pst.executeUpdate();
-            pst = conn.prepareStatement("CREATE TABLE ATOFMSAtomInfoDense (AtomID INT, Time SMALLDATETIME, LaserPower FLOAT, Size FLOAT, ScatDelay INT, OrigFileName VARCHAR(8000), PRIMARY KEY (AtomID));");
-            pst.executeUpdate();
+            //pst = conn.prepareStatement("CREATE TABLE ATOFMSAtomInfoSparse (AtomID INT, PeakLocation FLOAT, PeakArea INT, RealPeakArea FLOAT, PeakHeight INT, PRIMARY KEY (AtomID, PeakLocation));");
+            //pst.executeUpdate();
+            //pst = conn.prepareStatement("CREATE TABLE ATOFMSAtomInfoDense (AtomID INT, Time SMALLDATETIME, LaserPower FLOAT, Size FLOAT, ScatDelay INT, OrigFileName VARCHAR(8000), PRIMARY KEY (AtomID));");
+            //pst.executeUpdate();
 
             String dbdatasetname = (String)reader.par.get("dbdatasetname");
             boolean moretoread = true;
             int setindex = 0;
             int currentAtomID = 0;
             //bulkInsertFileWriter.println(parentID+","+atomID);
+            pst = conn.prepareStatement("INSERT INTO Collections VALUES (0, 'Name', 'comment','description', 'ATOFMS')");
+            pst.execute();
+            pst = conn.prepareStatement("INSERT INTO CollectionRelationships VALUES (0, -1)");
+            pst.execute();
 
             while(moretoread){
                 //Get n rows of data (n particles)
@@ -201,9 +200,9 @@ public class SQLBenchmark implements DatabaseLoad {
                     float size = (float)dense.get("size");
                     int scatDelay = (int)dense.get("scatdelay");
                     String name = (String)dense.get("specname");
-                    System.out.println(name);
+                    //System.out.println(name);
                     bulkInsertFileWriterDense.println(Integer.toString(currentAtomID)+","+strDate+","+Float.toString(laserpower) +","+Float.toString(size) +"," + Integer.toString(scatDelay) + "," + name);
-
+                    bulkInsertFileWriterAtomMembership.println("0," + Integer.toString(currentAtomID));
                     //Put data into ATOFMSAtomInfoSparse
                     List<Map> sparse = (List<Map>)((Map)data.get(i)).get("sparse");
                     for (Map m: sparse) {
@@ -221,9 +220,12 @@ public class SQLBenchmark implements DatabaseLoad {
             }
             bulkInsertFileWriterSparse.close();
             bulkInsertFileWriterDense.close();
+            bulkInsertFileWriterAtomMembership.close();
             pst = conn.prepareStatement("BULK INSERT ATOFMSAtomInfoSparse FROM '" + bulkInsertFileSparse.getAbsolutePath() + "' WITH (FIELDTERMINATOR = ',', ROWTERMINATOR = '\n');");
             pst.execute();
             pst = conn.prepareStatement("BULK INSERT ATOFMSAtomInfoDense FROM '" + bulkInsertFileDense.getAbsolutePath() + "' WITH (FIELDTERMINATOR = ',', ROWTERMINATOR = '\n');");
+            pst.execute();
+            pst = conn.prepareStatement("BULK INSERT AtomMembership FROM '" + bulkInsertFileAtomMembership.getAbsolutePath() + "' WITH (FIELDTERMINATOR = ',', ROWTERMINATOR = '\n');");
             pst.execute();
 
         } catch (Exception e) {
@@ -250,12 +252,16 @@ public class SQLBenchmark implements DatabaseLoad {
             bulkInsertFileDense.delete();
         }
 
+        if (bulkInsertFileAtomMembership != null && bulkInsertFileAtomMembership.exists()) {
+            bulkInsertFileAtomMembership.delete();
+        }
         bulkInsertFileSparse = null;
         bulkInsertFileWriterSparse = null;
         alteredCollections = new ArrayList<Integer>();
 
         bulkInsertFileDense = null;
         bulkInsertFileWriterDense = null;
+        bulkInsertFileAtomMembership = null;
 
         try {
             bulkInsertFileSparse = new File("Temp"+File.separator+"bulkfileSparse"+".txt");
@@ -274,6 +280,15 @@ public class SQLBenchmark implements DatabaseLoad {
             System.err.println("Trouble creating " + bulkInsertFileDense.getAbsolutePath() + "");
             e.printStackTrace();
         }
+
+        try {
+            bulkInsertFileAtomMembership = new File("Temp"+File.separator+"bulkfileCollections"+".txt");
+            bulkInsertFileAtomMembership.deleteOnExit();
+            bulkInsertFileWriterAtomMembership = new PrintWriter(new FileWriter(bulkInsertFileAtomMembership));
+        } catch (IOException e) {
+            System.err.println("Trouble creating " + bulkInsertFileAtomMembership.getAbsolutePath() + "");
+            e.printStackTrace();
+        }
     }
 
 
@@ -282,6 +297,7 @@ public class SQLBenchmark implements DatabaseLoad {
         return "SQLExpress";
     }
     public void createDatabase(){
+        Scanner in = null;
         //Create database
         Connection conn = null;
         ResultSet rs = null;
@@ -295,6 +311,31 @@ public class SQLBenchmark implements DatabaseLoad {
             conn = DriverManager.getConnection(url, userName, password);
             pst = conn.prepareStatement("CREATE DATABASE enchilada_benchmark");
             pst.executeUpdate();
+            conn.close();
+
+            //Connect to new database
+            conn = DriverManager.getConnection("jdbc:jtds:sqlserver://127.0.0.1;instance=SQLEXPRESS01;DatabaseName=enchilada_benchmark", userName, password);
+            in = new Scanner(new File("SQLServerRebuildDatabase.txt"));
+            String query = "";
+            StringTokenizer token;
+            // loop through license block
+            while (in.hasNext()) {
+                query = in.nextLine();
+                token = new StringTokenizer(query);
+                if (token.hasMoreTokens()) {
+                    String s = token.nextToken();
+                    if (s.equals("CREATE"))
+                        break;
+                }
+            }
+            // Update the database according to the stmts.
+            conn.createStatement().executeUpdate(query);
+
+            while (in.hasNext()) {
+                query = in.nextLine();
+                conn.createStatement().executeUpdate(query);
+            }
+
 
         } catch (Exception e) {
             e.printStackTrace();

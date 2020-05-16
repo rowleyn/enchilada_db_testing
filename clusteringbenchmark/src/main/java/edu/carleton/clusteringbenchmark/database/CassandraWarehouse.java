@@ -38,6 +38,11 @@ public class CassandraWarehouse implements InfoWarehouse {
     }
 
     @Override
+    public void clear() {
+
+    }
+
+    @Override
     public Collection getCollection(int collectionID) {
         try {
             //String id = String.valueOf(collectionID);

@@ -25,8 +25,6 @@ public class SQLWarehouse implements InfoWarehouse {
     private PrintWriter bulkInsertFileWriter;
     private File bulkInsertFile;
 
-    //TODO
-    //Unsure what atoms would need to be deleted??
     private StringBuilder atomIDsToDelete;
     //atomIDsToDelete = new StringBuilder("");
     //atomIDsToDelete.append(atomID + ",");
@@ -36,8 +34,6 @@ public class SQLWarehouse implements InfoWarehouse {
      */
     protected Collection collection;
 
-    //TODO
-    //Move this to dataload? And apply to any atoms inserted
     /**
      * Adds a new atom to InternalAtomOrder, assuming the atom is the next one
      * in its collection.
@@ -45,16 +41,17 @@ public class SQLWarehouse implements InfoWarehouse {
      * @param	collectionID - the collection to which the atom is added
      */
     private void addInternalAtom(int atomID, int collectionID){
-        //IF OBJECT_ID('InternalAtomOrder', 'U') IS NULL CREATE TABLE InternalAtomOrder (atomID INT, collectionID INT);
         Connection conn = null;
         try {
             Class.forName(driver);
             conn = DriverManager.getConnection(url, userName, password);
             Statement stmt = conn.createStatement();
-
+            /*
             String query = "INSERT INTO InternalAtomOrder " +
                     "VALUES (" + atomID +", "+ collectionID+ ")";
-            //System.out.println(query);//debugging
+            */
+            String query = "INSERT INTO AtomMembership " +
+                    "VALUES (" + atomID +", "+ collectionID+ ")";
             stmt.execute(query);
             stmt.close();
 
@@ -85,12 +82,13 @@ public class SQLWarehouse implements InfoWarehouse {
             Class.forName(driver);
             conn = DriverManager.getConnection(url, userName, password);
             stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT CollectionID \nFROM Collections \nWHERE CollectionID = "+collectionID);
+            ResultSet rs = stmt.executeQuery("SELECT CollectionID FROM Collections WHERE CollectionID = "+collectionID);
             while (rs.next()) {
                 if (rs.getInt(1) == collectionID) {
                     isPresent = true;
                     break;
                 }
+
             }
 
             if (isPresent) {
@@ -130,7 +128,7 @@ public class SQLWarehouse implements InfoWarehouse {
             conn = DriverManager.getConnection(url, userName, password);
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(
-                    "SELECT COUNT(AtomID) FROM InternalAtomOrder WHERE CollectionID = " + collectionID);
+                    "SELECT COUNT(AtomID) FROM AtomMembership WHERE CollectionID = " + collectionID);
             boolean test = rs.next();
             assert (test): "error getting atomID count.";
             returnThis = rs.getInt(1);
@@ -157,12 +155,6 @@ public class SQLWarehouse implements InfoWarehouse {
                                       String description){
         Connection conn = null;
 
-        //TODO
-        //IF OBJECT_ID('Metadata', 'U') IS NULL CREATE TABLE Metadata (DataType VARCHAR(8000), ColumnName VARCHAR(8000), ColumnType VARCHAR(8000), PrimaryKey BIT, TableID INT, ColumnOrder INT);
-        //IF OBJECT_ID('Collections', 'U') IS NULL CREATE TABLE Collections (CollectionID INT, Name VARCHAR(8000), Comment VARCHAR(8000), Description VARCHAR(8000), Datatype VARCHAR(8000));
-        //IF OBJJECT_ID('CollectionRelationships', 'U') IS NULL CREATE TABLE CollectionRelationships (ParentID INT, ChildID INT);
-        //INSERT INTO Metadata VALUES
-
         if (description.length() == 0)
             description = "Name: " + name + " Comment: " + comment;
 
@@ -185,6 +177,11 @@ public class SQLWarehouse implements InfoWarehouse {
                     "FROM Collections\n");
             rs.next();
             nextID = rs.getInt(1) + 1;
+            //If there are no collections, the nextID is 0
+            ResultSet frs = stmt.executeQuery("SELECT TOP 1 1 FROM Collections");
+            if(!frs.next()){
+                nextID = 0;
+            }
 
             stmt.executeUpdate("INSERT INTO Collections\n" +
                     "(CollectionID, Name, Comment, Description, Datatype)\n" +
@@ -292,15 +289,17 @@ public class SQLWarehouse implements InfoWarehouse {
             sql.append("INSERT INTO AtomMembership (CollectionID, AtomID)" +
                     " SELECT CollectionID, AtomID " +
                     "FROM #temp;\n");
+            /*
             sql.append("INSERT INTO InternalAtomOrder (CollectionID, AtomID)" +
                     " SELECT CollectionID, AtomID " +
                     "FROM #temp;\n");
-            System.out.println(sql.toString());
+            */
+            //System.out.println(sql.toString());
             stmt.execute(sql.toString());
             stmt.close();
 
-            System.out.println("Time: " + (System.currentTimeMillis()-time));
-            System.out.println("done inserting now time for altering collections");
+            //System.out.println("Time: " + (System.currentTimeMillis()-time));
+            //System.out.println("done inserting now time for altering collections");
 
             /*
             time = System.currentTimeMillis();
@@ -361,11 +360,11 @@ public class SQLWarehouse implements InfoWarehouse {
     // not from enchilada, this is meant to replace the putInSubCollectionBulkExecute method in CollectionDivider so that it doesn't contain SQL
     public void bulkDelete(StringBuilder atomIDsToDelete, Collection collection) throws Exception{
         Connection conn = null;
-        System.out.println("Done with INSERTS, about to do DELETE");
+        //System.out.println("Done with INSERTS, about to do DELETE");
 
         //build a table for deletes
         //drop the table in case it already (mistakenly) exists
-        System.out.println("Creating deletion table...");
+        //System.out.println("Creating deletion table...");
         //Connection dbCon = db.getCon();
         Statement delStmt = null;
         try {
@@ -382,12 +381,14 @@ public class SQLWarehouse implements InfoWarehouse {
 
         //create tempfile used to bulk insert to stuffToDelete
         //tempfile goes in same place as other temp files
-        System.out.println("Creating tempdelete.data file...");
+        //System.out.println("Creating tempdelete.data file...");
 //		String tempdir = "";
         File temp = null;
         PrintWriter pw = null;
         try {
-            temp = File.createTempFile("tempdelete", "data");
+            //temp = File.createTempFile("tempdelete", "data");
+            temp = new File("Temp"+File.separator+"tempDelete"+".txt");
+            temp.deleteOnExit();
             pw = new PrintWriter(temp);
         }
         catch (Exception e) {
@@ -395,7 +396,7 @@ public class SQLWarehouse implements InfoWarehouse {
         }
 
         //put stuff in the tempfile
-        System.out.println("Putting stuff in tempdelete.data...");
+        //System.out.println("Putting stuff in tempdelete.data...");
         String atomIDsToDel = atomIDsToDelete.toString();
         Scanner atomIDs = new Scanner(atomIDsToDel).useDelimiter(",");
         while (atomIDs.hasNext()) {
@@ -405,28 +406,31 @@ public class SQLWarehouse implements InfoWarehouse {
         pw.close();
 
         //execute a statement to bulk insert into stuffToDelete
-        System.out.println("Putting stuff in deletion table...");
+        //System.out.println("Putting stuff in deletion table...");
         try {
             delStmt.executeUpdate("BULK INSERT stuffToDelete\n" +
-                    "FROM '" + temp.getAbsoluteFile() + "'");
+                    "FROM '" + temp.getAbsolutePath() + "' WITH (FIELDTERMINATOR = ',', ROWTERMINATOR = '\n');");
         }
         catch (Exception e) {
             System.out.println("Error inserting into stuffToDelete.");
         }
+        //ResultSet rs = delStmt.executeQuery("SELECT COUNT (*) FROM stuffToDelete");
 
+        //System.out.println("Are there atoms in stuff to delete?");
+        //System.out.println(rs.next());
         //delete the temp file
-        System.out.println("Deleting tempdelete.data...");
-        temp.delete();
+        //System.out.println("Deleting tempdelete.data...");
+        //temp.delete();
 
         //finally, delete what's in stuffToDelete from AtomMembership
         //and drop the stuffToDelete table
-        System.out.println("Finally, deleting from AtomMembership...");
+        //System.out.println("Finally, deleting from AtomMembership...");
         String deletionquery = "DELETE FROM AtomMembership\n" +
                 "WHERE CollectionID = " + collection.getCollectionID() +
                 "\n" + "AND AtomID IN \n" +
                 "(SELECT atoms FROM stuffToDelete)";
-        System.out.println("Query:");
-        System.out.println(deletionquery);
+        //System.out.println("Query:");
+        //System.out.println(deletionquery);
         try {
             delStmt.executeUpdate(deletionquery);
             delStmt.executeUpdate("DROP TABLE stuffToDelete");
@@ -434,16 +438,16 @@ public class SQLWarehouse implements InfoWarehouse {
         catch (Exception e) {
             System.out.println("Error deleting from AtomMembership");
         }
-        System.out.println("...and dropping deletion table.");
+        //System.out.println("...and dropping deletion table.");
 
-        System.out.println("Done with DELETEs.");
+        //System.out.println("Done with DELETEs.");
 
     }
 
 
     // simple, just returns a new AtomInfoOnlyCursor object on collection
     public CollectionCursor getAtomInfoOnlyCursor(Collection collection){
-        return new AtomInfoOnlyCursor(collection);
+        return new SQLCursor(collection);
     }
 
 
@@ -749,6 +753,16 @@ public class SQLWarehouse implements InfoWarehouse {
             String scatDelay = denseparams[3];
             String name = denseparams[4];
 
+            //Check for extra quotes
+            if(name.contains("\'")){
+                name = name.replace("\'","");
+            }
+            //Check that date exists
+            if(strDate.length() < 10){
+                strDate = "2000-01-01 00:00:00";
+            }
+
+            //System.out.println("INSERT INTO ATOFMSAtomInfoDense VALUES ("+ Integer.toString(currentAtomID) + ", '" + strDate + "', " + laserpower + ", " + size + ", " + scatDelay + ", '" + name +"')");
             pst = conn.prepareStatement("INSERT INTO ATOFMSAtomInfoDense VALUES ("+ Integer.toString(currentAtomID) + ", '" + strDate + "', " + laserpower + ", " + size + ", " + scatDelay + ", '" + name +"')");
             pst.execute();
 
@@ -833,14 +847,17 @@ public class SQLWarehouse implements InfoWarehouse {
             Class.forName(driver);
             conn = DriverManager.getConnection(url, userName, password);
             Statement stmt = conn.createStatement();
+            int nextID = 0;
 
-            ResultSet rs = stmt.executeQuery("SELECT MAX(AtomID) FROM AtomMembership");
-
-            int nextID;
-            if(rs.next())
-                nextID = rs.getInt(1) + 1;
-            else
+            ResultSet frs = stmt.executeQuery("SELECT TOP 1 1 FROM AtomMembership");
+            if(!frs.next()){
                 nextID = 0;
+            }
+            else{
+                ResultSet rs = stmt.executeQuery("SELECT MAX(AtomID) FROM AtomMembership");
+                if(rs.next())
+                    nextID = rs.getInt(1) + 1;
+            }
             stmt.close();
             return nextID;
 
@@ -869,6 +886,8 @@ public class SQLWarehouse implements InfoWarehouse {
             String query = "INSERT INTO CenterAtoms \n" +
                     "VALUES ("+ centerAtomID + ", " + centerCollID + ")";
             stmt.execute(query);
+            //query = "INSERT INTO AtomMe";
+            //stmt.execute(query);
             stmt.close();
             success = true;
         }catch (Exception e) {
@@ -942,5 +961,38 @@ public class SQLWarehouse implements InfoWarehouse {
     // returns a string naming the database system implementing this interface
     public String dbname(){
         return "SQLExpress";
+    }
+
+    // clear out the database so it is fresh for running tests (not used in the benchmark)
+    public void clear(){
+        Connection conn = null;
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, userName, password);
+            PreparedStatement stmt = conn.prepareStatement("DELETE FROM Collections");
+            stmt.execute();
+            stmt = conn.prepareStatement("DELETE FROM CollectionRelationships");
+            stmt.execute();
+            stmt = conn.prepareStatement("DELETE FROM AtomMembership");
+            stmt.execute();
+            stmt = conn.prepareStatement("DELETE FROM ATOFMSAtomInfoDense");
+            stmt.execute();
+            stmt = conn.prepareStatement("DELETE FROM ATOFMSAtomInfoSparse");
+            stmt.execute();
+            stmt = conn.prepareStatement("DELETE FROM CenterAtoms");
+            stmt.execute();
+            stmt = conn.prepareStatement("IF (OBJECT_ID('stuffToDelete') IS NOT NULL) DROP TABLE stuffToDelete");
+            stmt.execute();
+            stmt.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                conn.close();
+            } catch (SQLException e) {
+                System.err.println("Error clearing.");
+                e.printStackTrace();
+            }
+        }
     }
 }

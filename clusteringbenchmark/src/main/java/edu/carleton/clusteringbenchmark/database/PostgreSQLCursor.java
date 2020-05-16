@@ -1,18 +1,19 @@
 package edu.carleton.clusteringbenchmark.database;
 
 import edu.carleton.clusteringbenchmark.ATOFMS.ParticleInfo;
+import edu.carleton.clusteringbenchmark.analysis.BinnedPeakList;
+import edu.carleton.clusteringbenchmark.analysis.Normalizer;
+import edu.carleton.clusteringbenchmark.atom.ATOFMSAtomFromDB;
 import edu.carleton.clusteringbenchmark.collection.Collection;
-import edu.carleton.clusteringbenchmark.analysis.*;
+
 import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import edu.carleton.clusteringbenchmark.analysis.BinnedPeakList;
-import edu.carleton.clusteringbenchmark.atom.ATOFMSAtomFromDB;
 
-public class SQLCursor implements CollectionCursor{
-    String url = "jdbc:jtds:sqlserver://127.0.0.1;instance=SQLEXPRESS01;DatabaseName=enchilada_benchmark";
-    String driver = "net.sourceforge.jtds.jdbc.Driver";
-    String userName = "SpASMS";
+public class PostgreSQLCursor implements CollectionCursor {
+    String url = "jdbc:postgresql://localhost/enchilada_benchmark";
+    //String driver = "net.sourceforge.jtds.jdbc.Driver";
+    String userName = "postgres";
     String password = "finally";
 
     protected ResultSet partInfRS = null;
@@ -20,36 +21,36 @@ public class SQLCursor implements CollectionCursor{
     Connection conn = null;
     Collection collection;
 
-    public SQLCursor(Collection col) {
-        //super();
+    public Connection connect(String url) {
+        conn = null;
+        try {
+            conn = DriverManager.getConnection(url, userName, password);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+
+        return conn;
+    }
+
+    public PostgreSQLCursor(Collection col) {
         assert (col.getDatatype().equals("ATOFMS")) : "Wrong datatype for cursor.";
         collection = col;
+
         try {
-            Class.forName(driver);
-            conn = DriverManager.getConnection(url, userName, password);
-            stmt = conn.createStatement();
-            String q = "SELECT "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID, OrigFilename, ScatDelay," +
-                    " LaserPower, [Time], Size FROM "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+", AtomMembership WHERE" +
+            conn = connect(url);
+            Statement stmt = conn.createStatement();
+            String q = "SELECT "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".\"[AtomID]\", \"[OrigFilename]\", \"[ScatDelay]\"," +
+                    " \"[LaserPower]\", \"[Time]\", \"[Size]\" FROM "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+", AtomMembership WHERE" +
                     " AtomMembership.CollectionID = "+collection.getCollectionID() +
-                    " AND "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID = AtomMembership.AtomID";
+                    " AND "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".\"[AtomID]\" = AtomMembership.AtomID";
 
             //System.out.println(q);
             partInfRS = stmt.executeQuery(q);
-            //stmt.close();
-        }  catch (Exception e) {
-            e.printStackTrace();
         }
-        /*finally {
-            try {
-                //conn.close();
-
-            } catch (SQLException e) {
-                System.err.println("Exception creating cursor");
-                e.printStackTrace();
-            }
-
+        catch (SQLException ex){
+            System.out.println(ex.getMessage());
         }
-*/
+
     }
 
     /*
@@ -103,14 +104,11 @@ public class SQLCursor implements CollectionCursor{
         try {
             ResultSet rs =
                     conn.createStatement().executeQuery(
-                            "SELECT PeakLocation,PeakArea\n" +
+                            "SELECT \"[PeakLocation]\",\"[PeakArea]\"\n" +
                                     "FROM " + getDynamicTableName(DynamicTable.AtomInfoSparse,collection.getDatatype()) + "\n" +
-                                    "WHERE AtomID = " + atomID);
+                                    "WHERE \"[AtomID]\" = " + atomID);
             while(rs.next()) {
-                peakList.add(rs.getInt(1), rs.getFloat(2)
-                        //rs.getInt(2),
-                        //rs.getFloat(1)
-                        );
+                peakList.add(rs.getInt(1), rs.getFloat(2));
                 //System.out.println("Printing information about the peak list");
                 //System.out.println(rs.getInt(2));
                 //System.out.println(rs.getFloat(1));
@@ -129,7 +127,9 @@ public class SQLCursor implements CollectionCursor{
     */
     public void close(){
         try {
-            stmt.close();
+            if(stmt != null) {
+                stmt.close();
+            }
             partInfRS.close();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -145,10 +145,11 @@ public class SQLCursor implements CollectionCursor{
     public void reset(){
         try {
             partInfRS.close();
-            partInfRS = stmt.executeQuery("SELECT "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID, OrigFilename, ScatDelay," +
-                    " LaserPower, [Time], Size FROM "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+", AtomMembership WHERE" +
+            stmt = conn.createStatement();
+            partInfRS = stmt.executeQuery("SELECT "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".\"[AtomID]\", \"[OrigFilename]\", \"[ScatDelay]\"," +
+                    " \"[LaserPower]\", \"[Time]\", \"[Size]\" FROM "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+", AtomMembership WHERE" +
                     " AtomMembership.CollectionID = "+collection.getCollectionID() +
-                    " AND "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID = AtomMembership.AtomID");
+                    " AND "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".\"[AtomID]\" = AtomMembership.AtomID");
         } catch (SQLException e) {
             System.err.println("SQL Error resetting " +
                     "cursor: ");
