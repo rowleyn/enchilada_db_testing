@@ -2,39 +2,28 @@ package edu.carleton.clusteringbenchmark.database;
 
 import com.datastax.driver.core.*;
 
-import com.mongodb.client.MongoCollection;
 import edu.carleton.clusteringbenchmark.ATOFMS.ParticleInfo;
 import edu.carleton.clusteringbenchmark.analysis.BinnedPeakList;
 import edu.carleton.clusteringbenchmark.atom.ATOFMSAtomFromDB;
 import edu.carleton.clusteringbenchmark.collection.Collection;
 import edu.carleton.clusteringbenchmark.errorframework.ErrorLogger;
 import org.apache.cassandra.exceptions.CassandraException;
-import org.bson.Document;
 
-import javax.xml.transform.Result;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.math.BigDecimal;
-import java.sql.Array;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.*;
 
-import static com.mongodb.client.model.Filters.eq;
-import static java.util.Arrays.asList;
 
 public class CassandraWarehouse implements InfoWarehouse {
     protected String url;
 
     // for batch stuff
-    private java.sql.Statement batchStatement;
     private ArrayList<Integer> alteredCollections;
     private PrintWriter bulkInsertFileWriter;
     private File bulkInsertFile;

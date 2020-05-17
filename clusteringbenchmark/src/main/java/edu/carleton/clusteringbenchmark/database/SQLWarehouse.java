@@ -958,9 +958,6 @@ public class SQLWarehouse implements InfoWarehouse {
         return "SQLExpress";
     }
 
-<<<<<<< Updated upstream
-
-
     // clear out the database so it is fresh for running tests (not used in the benchmark)
     public void clear() {
         Connection conn = null;

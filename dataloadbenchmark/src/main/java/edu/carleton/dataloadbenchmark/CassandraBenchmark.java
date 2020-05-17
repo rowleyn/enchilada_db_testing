@@ -87,12 +87,16 @@ public class CassandraBenchmark implements DatabaseLoad {
             String particleCollectionName = reader.par.get("dbdatasetname") + "_particles";
             PreparedStatement query = session.prepare("INSERT INTO particles.sparse (dbdatasetname, area, relarea, masstocharge, height, AtomID) Values (?, ?, ?, ?, ?, ?)");
             while(moretoread) {
+                System.out.println("HELLO KELSEY ALL IS WELL");
                 List data = reader.readNSpectraFrom(1, setindex);
                 setindex = (int)data.get(data.size() - 1);
                 for (int i = 0; i < data.size() - 1; i++) {
                     if(((Map)data.get(i)).get("name") == null){ break;}
                     List<Map> sparse = (List<Map>)((Map)data.get(i)).get("sparse");
+                    Map<String, Integer> dense = (Map)((Map)data.get(i)).get("dense");
                     Date date = (Date) ((Map) ((Map) data.get(i)).get("dense")).get("time");
+                    //DateFormat dateFormat = new SimpleDateFormat("'MM-dd-yyyy HH:mm:ss'");
+                    //String strDate = dateFormat.format(date);
                     String laserpower= ((Map)((Map)data.get(i)).get("dense")).get("laserpower").toString();
                     String size =  ((Map)((Map)data.get(i)).get("dense")).get("size").toString();
                     String scatdelay =  ((Map)((Map)data.get(i)).get("dense")).get("scatdelay").toString();
@@ -102,6 +106,7 @@ public class CassandraBenchmark implements DatabaseLoad {
                     int k = 0;
 
                     for(int j = 0; j <sparse.size(); j++){
+                    //for(int j = 0; j <2; j++){
                         int area = (int) sparse.get(j).get("area");
                         String relarea = sparse.get(j).get("relarea").toString();
                         String masstocharge = sparse.get(j).get("masstocharge").toString();
