@@ -34,8 +34,6 @@ public class WarehouseTests {
             //db = new PostgreSQLWarehouse();
             //db = new MongoWarehouse();
             db = new CassandraWarehouse();
-
-
             db.clear();
             collectionTest();
             List<Integer> atomids = insertParticlesTest();
