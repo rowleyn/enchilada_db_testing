@@ -135,7 +135,6 @@ public class CassandraBenchmark implements DatabaseLoad {
             System.out.println(row.getString("release_version"));
 
 
-
         } catch (CassandraException ce) {
             if (cluster != null) cluster.close();
             out.println("Something went wrong...");

@@ -32,8 +32,8 @@ public class WarehouseTests {
     public static void main (String[]args) throws Exception {
             //db = new MongoWarehouse();
             //db = new PostgreSQLWarehouse();
-            //db = new MongoWarehouse();
             db = new CassandraWarehouse();
+
             db.clear();
             collectionTest();
             List<Integer> atomids = insertParticlesTest();

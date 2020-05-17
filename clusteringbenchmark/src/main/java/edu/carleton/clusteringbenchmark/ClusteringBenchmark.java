@@ -21,7 +21,6 @@ public class ClusteringBenchmark {
         List<InfoWarehouse> dbs = new ArrayList<>();
 
         // add InfoWarehouse instances
-        //dbs.add(new MongoWarehouse());
         //dbs.add(new SQLWarehouse());
         //dbs.add(new PostgreSQLWarehouse());
         dbs.add(new CassandraWarehouse());
