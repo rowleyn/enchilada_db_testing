@@ -1,12 +1,7 @@
 package edu.carleton.clusteringbenchmark.database;
 
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Projections;
 import edu.carleton.clusteringbenchmark.errorframework.ErrorLogger;
 import edu.carleton.clusteringbenchmark.collection.Collection;
-import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.influxdb.BatchOptions;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBException;
@@ -19,26 +14,24 @@ import org.joda.time.Instant;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 
 public class InfluxWarehouse implements InfoWarehouse{
-
-
     private File bulkInsertFile;
     private  PrintWriter bulkInsertFileWriter;
     private String dbName = "enchilada_benchmark";
     private InfluxDB influxDB = InfluxDBFactory.connect("http://localhost:8086", "influxdbUser", "influxdbPsw" );
-
     private String rpName = "aRetentionPolicy";
 
     public InfluxWarehouse(){
         influxDB.setDatabase("enchilada_benchmark");
-        influxDB.query(new Query("CREATE RETENTION POLICY " + rpName + " ON " + dbName + " DURATION 30h REPLICATION 2 SHARD DURATION 30m DEFAULT"));
+        influxDB.query(new Query("CREATE RETENTION POLICY " + rpName + " ON " + dbName + " DURATION 30h " +
+                "REPLICATION 2 SHARD DURATION 30m DEFAULT"));
         influxDB.setRetentionPolicy(rpName);
-        influxDB.enableBatch(BatchOptions.DEFAULTS);
     }
 
     public void clear(){
@@ -46,11 +39,13 @@ public class InfluxWarehouse implements InfoWarehouse{
         influxDB.query(new Query("DROP MEASUREMENT dense", dbName));
         influxDB.query(new Query("DROP MEASUREMENT sparse", dbName));
         influxDB.query(new Query("DROP MEASUREMENT collections", dbName));
+
     }
 
     public Collection getCollection(int collectionID) {
         try {
-            QueryResult queryResult = influxDB.query(new Query("SELECT colName FROM collections WHERE collectionID ='" + collectionID + "'", dbName));
+            QueryResult queryResult = influxDB.query(new Query("SELECT colName FROM collections WHERE " +
+                    "collectionID ='" + collectionID + "'", dbName));
             InfluxDBResultMapper resultMapper = new InfluxDBResultMapper();
             List<Collections> memoryPointList = resultMapper.toPOJO(queryResult, Collections.class);
 
@@ -58,8 +53,8 @@ public class InfluxWarehouse implements InfoWarehouse{
                 return new Collection("ATOFMS", collectionID, this);
             }
             else {
-                System.out.println("Collection not created yet!!!!!");
-                return null;
+                System.out.println("Collection not created yet!");
+                return new Collection("ATOFMS", collectionID, this);
             }
         }
         catch (InfluxDBException e){
@@ -69,7 +64,8 @@ public class InfluxWarehouse implements InfoWarehouse{
     }
     public String getCollectionName(int collectionID){
         try {
-            QueryResult queryResult = influxDB.query(new Query("SELECT colName FROM collections WHERE collectionID ='" + collectionID + "'", dbName));
+            QueryResult queryResult = influxDB.query(new Query("SELECT colName FROM collections WHERE " +
+                    "collectionID ='" + collectionID + "'", dbName));
             InfluxDBResultMapper resultMapper = new InfluxDBResultMapper();
             List<Collections> result = resultMapper.toPOJO(queryResult, Collections.class);
 
@@ -79,6 +75,7 @@ public class InfluxWarehouse implements InfoWarehouse{
             else {
                 System.out.println("Collection not created yet!!");
                 return "hardCoded";
+//                return null;
             }
         }
         catch (InfluxDBException e){
@@ -90,7 +87,8 @@ public class InfluxWarehouse implements InfoWarehouse{
 
     public int getCollectionSize(int collectionID){
         try{
-            QueryResult queryResult = influxDB.query(new Query("SELECT COUNT(atomID) FROM internalAtomOrder where collectionID ='" + collectionID + "' AND deleted != 1", dbName));
+            QueryResult queryResult = influxDB.query(new Query("SELECT COUNT(atomID) FROM internalAtomOrder " +
+                    "where collectionID ='" + collectionID + "' AND deleted != 1", dbName));
             InfluxDBResultMapper resultMapper = new InfluxDBResultMapper();
             List<InternalAtomOrder> result = resultMapper.toPOJO(queryResult, InternalAtomOrder.class);
 
@@ -106,7 +104,8 @@ public class InfluxWarehouse implements InfoWarehouse{
     }
 
     public int createEmptyCollection( String datatype, int parent, String name, String comment, String description){
-        QueryResult queryResult = influxDB.query(new Query("SELECT MAX(collectionIDInt) FROM collections", dbName));
+        QueryResult queryResult = influxDB.query(new Query("SELECT MAX(collectionIDInt) FROM collections",
+                dbName));
         InfluxDBResultMapper resultMapper = new InfluxDBResultMapper();
         List<Collections> result = resultMapper.toPOJO(queryResult, Collections.class);
         Integer ID = 0;
@@ -168,7 +167,8 @@ public class InfluxWarehouse implements InfoWarehouse{
         Scanner reader = new Scanner(bulkInsertFile);
         while (reader.hasNextLine()) {
             String[] pair = reader.nextLine().split(",");
-            QueryResult queryResult = influxDB.query(new Query("SELECT * FROM internalAtomOrder WHERE collectionID =" +
+            QueryResult queryResult = influxDB.query(new Query("SELECT * FROM internalAtomOrder " +
+                    "WHERE collectionID =" +
                     Integer.toString(Integer.parseInt(pair[0])) + " AND atomID =" +
                     Integer.toString(Integer.parseInt(pair[1])) + " AND deleted != 1", dbName));
             InfluxDBResultMapper resultMapper = new InfluxDBResultMapper();
@@ -184,16 +184,20 @@ public class InfluxWarehouse implements InfoWarehouse{
         }
     }
 
-    public void bulkDelete(StringBuilder atomIDsToDelete, edu.carleton.clusteringbenchmark.collection.Collection collection) throws Exception{
+    public void bulkDelete(StringBuilder atomIDsToDelete, edu.carleton.clusteringbenchmark.collection.Collection
+            collection) throws Exception{
         try {
-            QueryResult queryResult = influxDB.query(new Query("SELECT * FROM collections WHERE collectionID ='" + collection.getCollectionID() + "'", dbName));
+            QueryResult queryResult = influxDB.query(new Query("SELECT * FROM collections WHERE " +
+                    "collectionID ='" + collection.getCollectionID() + "'", dbName));
             InfluxDBResultMapper resultMapper = new InfluxDBResultMapper();
             List<Collections> result = resultMapper.toPOJO(queryResult, Collections.class);
             if (!result.isEmpty()) {
                 Scanner deleteids = new Scanner(atomIDsToDelete.toString()).useDelimiter(",");
                 while (deleteids.hasNext()) {
                     int nextid = Integer.parseInt(deleteids.next());
-                    QueryResult atomQueryResult = influxDB.query(new Query("SELECT atomID FROM internalAtomOrder WHERE collectionID ='" + collection.getCollectionID() + "'" + " AND atomID =" + nextid, dbName));
+                    QueryResult atomQueryResult = influxDB.query(new Query("SELECT atomID FROM " +
+                            "internalAtomOrder WHERE collectionID ='" + collection.getCollectionID() + "'" + " " +
+                            "AND atomID =" + nextid, dbName));
                     InfluxDBResultMapper atomMapper = new InfluxDBResultMapper();
                     List<InternalAtomOrder> atoms = atomMapper.toPOJO(atomQueryResult, InternalAtomOrder.class);
                     Instant time = Instant.parse(atoms.get(0).getTime());
@@ -224,7 +228,8 @@ public class InfluxWarehouse implements InfoWarehouse{
 
     public String getCollectionDatatype(int collectionID){
         try {
-            QueryResult queryResult = influxDB.query(new Query("SELECT datatype FROM collections WHERE collectionID ='" + collectionID + "'" , dbName));
+            QueryResult queryResult = influxDB.query(new Query("SELECT datatype FROM collections WHERE " +
+                    "collectionID ='" + collectionID + "'" , dbName));
             InfluxDBResultMapper resultMapper = new InfluxDBResultMapper();
             List<Collections> result = resultMapper.toPOJO(queryResult, Collections.class);
 
@@ -239,7 +244,6 @@ public class InfluxWarehouse implements InfoWarehouse{
         catch (InfluxDBException e){
             System.out.println("Something went wrong");
             System.out.println(e);
-
         }
         return null;
     }
@@ -258,7 +262,8 @@ public class InfluxWarehouse implements InfoWarehouse{
                 }
                 return result;
             } else if (table.ordinal() == 2) {
-                String[] temp1 = {"time", "DATETIME", "laserpower", "REAL", "size", "REAL", "scatdelay", "INT", "specname", "VARCHAR(8000)"};
+                String[] temp1 = {"time", "DATETIME", "laserpower", "REAL", "size", "REAL", "scatdelay", "INT",
+                        "specname", "VARCHAR(8000)"};
                 ArrayList<ArrayList<String>> result = new ArrayList<>();
                 ArrayList<String> temp2;
                 for (int i = 0; i < temp1.length; i = i + 2) {
@@ -278,22 +283,26 @@ public class InfluxWarehouse implements InfoWarehouse{
         return null;
     }
 
-    public int insertParticle(String dense, ArrayList<String> sparse, edu.carleton.clusteringbenchmark.collection.Collection collection, int nextID){
+    public int insertParticle(String dense, ArrayList<String> sparse,
+                              edu.carleton.clusteringbenchmark.collection.Collection collection, int nextID){
         try {
-            QueryResult queryResult = influxDB.query(new Query("SELECT * FROM collections WHERE collectionID ='" + collection.getCollectionID() + "'", dbName));
+            QueryResult queryResult = influxDB.query(new Query("SELECT * FROM collections WHERE " +
+                    "collectionID ='" + collection.getCollectionID() + "'", dbName));
             InfluxDBResultMapper resultMapper = new InfluxDBResultMapper();
             List<Collections> result = resultMapper.toPOJO(queryResult, Collections.class);
             if (result.isEmpty()) {
-                ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Error retrieving collection for collectionID " + collection.getCollectionID());
+                ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Error retrieving collection for " +
+                        "collectionID " + collection.getCollectionID());
                 System.err.println("collectionID not created yet!");
                 return -1;
             } else {
+                influxDB.enableBatch(BatchOptions.DEFAULTS);
+                influxDB.setDatabase(dbName);
                 int atomId = nextID;
                 String[] denseparams = dense.split(", ");
                 influxDB.write(Point.measurement("dense")
                         .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                         .tag("specname", denseparams[4])
-//                        .tag("par_id", denseparams[])
                         .addField("_id", atomId)
                         .addField("scatdelay", denseparams[3])
                         .addField("size", denseparams[2])
@@ -352,7 +361,6 @@ public class InfluxWarehouse implements InfoWarehouse{
             InfluxDBResultMapper resultMapper = new InfluxDBResultMapper();
             List<Collections> result = resultMapper.toPOJO(queryResult, Collections.class);
             if (!result.isEmpty()) {
-
                 QueryResult atom = influxDB.query(new Query("SELECT * FROM internalAtomOrder WHERE collectionID ='" + centerCollID + "'" + "AND atomID =" + centerAtomID + " AND deleted != 1", dbName));
                 InfluxDBResultMapper atomMapper = new InfluxDBResultMapper();
                 List<InternalAtomOrder> atomResult = atomMapper.toPOJO(atom, InternalAtomOrder.class);
@@ -379,7 +387,6 @@ public class InfluxWarehouse implements InfoWarehouse{
         InfluxDBResultMapper resultMapper = new InfluxDBResultMapper();
         List<Collections> result = resultMapper.toPOJO(queryResult, Collections.class);
         if (!result.isEmpty()) {
-            String time = result.get(0).getTime();
             influxDB.write(Point.measurement("collection")
                     .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                     .tag("collectionID", Integer.toString(collection.getCollectionID()))
