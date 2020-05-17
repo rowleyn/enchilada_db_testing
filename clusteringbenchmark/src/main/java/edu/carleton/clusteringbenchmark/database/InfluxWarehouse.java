@@ -17,34 +17,12 @@ import org.influxdb.dto.QueryResult;
 import org.influxdb.impl.InfluxDBResultMapper;
 import org.joda.time.Instant;
 
-import org.influxdb.BatchOptions;
-import org.influxdb.InfluxDB;
-import org.influxdb.InfluxDBException;
-import org.influxdb.InfluxDBFactory;
-import org.influxdb.dto.Point;
-import org.influxdb.dto.Query;
-import org.influxdb.dto.QueryResult;
-import org.influxdb.impl.InfluxDBResultMapper;
-
-
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
-import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 public class InfluxWarehouse implements InfoWarehouse{
 
@@ -60,18 +38,15 @@ public class InfluxWarehouse implements InfoWarehouse{
         influxDB.setDatabase("enchilada_benchmark");
         influxDB.query(new Query("CREATE RETENTION POLICY " + rpName + " ON " + dbName + " DURATION 30h REPLICATION 2 SHARD DURATION 30m DEFAULT"));
         influxDB.setRetentionPolicy(rpName);
+        influxDB.enableBatch(BatchOptions.DEFAULTS);
     }
-
-
 
     public void clear(){
         System.out.println("Clearing dense, sparse, and collections");
         influxDB.query(new Query("DROP MEASUREMENT dense", dbName));
         influxDB.query(new Query("DROP MEASUREMENT sparse", dbName));
         influxDB.query(new Query("DROP MEASUREMENT collections", dbName));
-
     }
-
 
     public Collection getCollection(int collectionID) {
         try {
@@ -83,10 +58,8 @@ public class InfluxWarehouse implements InfoWarehouse{
                 return new Collection("ATOFMS", collectionID, this);
             }
             else {
-                System.out.println("here");
                 System.out.println("Collection not created yet!!!!!");
-                return new Collection("ATOFMS", collectionID, this);
-//                return null;
+                return null;
             }
         }
         catch (InfluxDBException e){
@@ -106,7 +79,6 @@ public class InfluxWarehouse implements InfoWarehouse{
             else {
                 System.out.println("Collection not created yet!!");
                 return "hardCoded";
-//                return null;
             }
         }
         catch (InfluxDBException e){
@@ -193,11 +165,9 @@ public class InfluxWarehouse implements InfoWarehouse{
             }
         }
         bulkInsertFileWriter.close();
-
         Scanner reader = new Scanner(bulkInsertFile);
         while (reader.hasNextLine()) {
             String[] pair = reader.nextLine().split(",");
-
             QueryResult queryResult = influxDB.query(new Query("SELECT * FROM internalAtomOrder WHERE collectionID =" +
                     Integer.toString(Integer.parseInt(pair[0])) + " AND atomID =" +
                     Integer.toString(Integer.parseInt(pair[1])) + " AND deleted != 1", dbName));
@@ -223,14 +193,10 @@ public class InfluxWarehouse implements InfoWarehouse{
                 Scanner deleteids = new Scanner(atomIDsToDelete.toString()).useDelimiter(",");
                 while (deleteids.hasNext()) {
                     int nextid = Integer.parseInt(deleteids.next());
-
                     QueryResult atomQueryResult = influxDB.query(new Query("SELECT atomID FROM internalAtomOrder WHERE collectionID ='" + collection.getCollectionID() + "'" + " AND atomID =" + nextid, dbName));
                     InfluxDBResultMapper atomMapper = new InfluxDBResultMapper();
                     List<InternalAtomOrder> atoms = atomMapper.toPOJO(atomQueryResult, InternalAtomOrder.class);
                     Instant time = Instant.parse(atoms.get(0).getTime());
-
-
-
                     influxDB.write(Point.measurement("internalAtomOrder")
                             .time(time.getMillis(), TimeUnit.MILLISECONDS)
                             .tag("collectionID", Integer.toString(collection.getCollectionID()))
@@ -246,7 +212,6 @@ public class InfluxWarehouse implements InfoWarehouse{
         }
     }
 
-
     public CollectionCursor getAtomInfoOnlyCursor(edu.carleton.clusteringbenchmark.collection.Collection collection){
         try {
             return new InfluxCursor(collection);
@@ -255,7 +220,7 @@ public class InfluxWarehouse implements InfoWarehouse{
             System.out.println("Problem in getAtomInfoOnlyCursor");
         }
         return new InfluxCursor(collection);
-    } // simple, just returns a new AtomInfoOnlyCursor object on collection
+    }
 
     public String getCollectionDatatype(int collectionID){
         try {
@@ -278,30 +243,6 @@ public class InfluxWarehouse implements InfoWarehouse{
         }
         return null;
     }
-
-//    public ArrayList<ArrayList<String>> getColNamesAndTypes(String datatype, DynamicTable table){ //adhoc can be changed fairly easily
-//        try {
-//            ArrayList<ArrayList<String>> colnamesandtypes = new ArrayList<>();
-//            ArrayList<String> nameandtype;
-//            nameandtype = new ArrayList<>();
-//            if (table.ordinal() == 1) { //dense
-//                nameandtype.add("time" + "string" + "Laserpower" + "float" + "size" + "float" + "scatdelay" + "integer" + "specname" + "string" + "par_id" + "integer");
-//                colnamesandtypes.add(nameandtype);
-//            }
-//            if (table.ordinal() == 2) { //sparse
-//                nameandtype.add("Area" + "integer" + "_id" + "integer" + "height" + "integer" + "masstocharge" + "float" + "relarea" + "float" + "specname" + "string");
-//                colnamesandtypes.add(nameandtype);
-//            }
-//            return colnamesandtypes;
-//        }
-//        catch (Exception e){
-//            System.out.println("Problem in getColNamesAndTypes");
-//            System.out.println(e);
-//        }
-//        ArrayList<ArrayList<String>> colnamesandtypes = new ArrayList<>();
-//        return colnamesandtypes;
-//    }
-
 
     public ArrayList<ArrayList<String>> getColNamesAndTypes(String datatype, DynamicTable table) {
         try {
@@ -328,19 +269,6 @@ public class InfluxWarehouse implements InfoWarehouse{
                 }
                 return result;
             }
-            //Metadata version
-            /**
-             Metadata metadata = cluster.getMetadata();
-             List<ColumnMetadata> columns = metadata.getKeyspace("particles").getTable(dtable).getColumns();
-             ArrayList<ArrayList<String>> colNames = new ArrayList<ArrayList<String>>();
-             ArrayList<String> temp;
-             for(int i = 0; i<columns.size(); i++) {
-             temp = new ArrayList<String>();
-             temp.add(columns.get(i).getName());
-             temp.add(columns.get(i).getType().toString());
-             colNames.add(temp);
-             }*/
-
         } catch(Exception e)
         {
             ErrorLogger.writeExceptionToLogAndPrompt(dbname(), "Exception retrieving column names.");
@@ -360,13 +288,8 @@ public class InfluxWarehouse implements InfoWarehouse{
                 System.err.println("collectionID not created yet!");
                 return -1;
             } else {
-                influxDB.enableBatch(BatchOptions.DEFAULTS);
-                influxDB.setDatabase(dbName);
                 int atomId = nextID;
-
-
                 String[] denseparams = dense.split(", ");
-
                 influxDB.write(Point.measurement("dense")
                         .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                         .tag("specname", denseparams[4])
@@ -377,7 +300,6 @@ public class InfluxWarehouse implements InfoWarehouse{
                         .addField("laserpower", denseparams[1])
                         .addField("Date", denseparams[0])
                         .build());
-
                 for (String sparsestr : sparse) {
                     String[] sparseparams = sparsestr.split(", ");
                     influxDB.write(Point.measurement("sparse")
@@ -404,7 +326,7 @@ public class InfluxWarehouse implements InfoWarehouse{
             System.out.println(e);
         }
         return -1;
-    } // inserts a particle's sparse (peaks) and dense info into the db
+    }
 
     public int getNextID(){
         try {
@@ -450,7 +372,7 @@ public class InfluxWarehouse implements InfoWarehouse{
             System.out.println(e);
         }
         return false;
-    } // simple, adds a particle to the Centeratoms table
+    }
 
     public boolean setCollectionDescription(edu.carleton.clusteringbenchmark.collection.Collection collection, String description){ //Not done
         QueryResult queryResult = influxDB.query(new Query("SELECT time, description FROM collections WHERE collectionID ='" + collection.getCollectionID() + "'", dbName));
@@ -475,7 +397,5 @@ public class InfluxWarehouse implements InfoWarehouse{
 
     public String dbname(){
         return "InfluxDB";
-    } // returns a string naming the database system implementing this interface
-
-
+    }
 }
