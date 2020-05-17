@@ -23,12 +23,16 @@ public class DataLoadBenchmark {
 
         // Instantiate database inserters here and add them to list
         //DatabaseLoad mongo = new MongoDBBenchmark();
-//        DatabaseLoad sql = new SQLBenchmark();
-//        DatabaseLoad postgres = new PostgreSQLBenchmark();
-        DatabaseLoad influx = new InfluxDBBenchmark();
-//        DatabaseLoad cassandra = new CassandraBenchmark();
+        DatabaseLoad sql = new SQLBenchmark();
+        DatabaseLoad postgres = new PostgreSQLBenchmark();
 
-        dbs.add(influx);
+
+        DatabaseLoad cassandra = new CassandraBenchmark();
+
+        //dbs.add(mongo);
+        //dbs.add(cassandra);
+        dbs.add(sql);
+        dbs.add(postgres);
 
         // Perform benchmarks
         for (DatabaseLoad db : dbs) {
@@ -47,6 +51,7 @@ public class DataLoadBenchmark {
                 writer.write("Benchmark failed for system: " + db.name());
                 writer.newLine();
             }
+
         }
 
         writer.close();

@@ -31,6 +31,7 @@ public class WarehouseTests {
 
     public static void main (String[]args) throws Exception {
             db = new MongoWarehouse();
+            //db = new PostgreSQLWarehouse();
             db.clear();
             collectionTest();
             List<Integer> atomids = insertParticlesTest();
@@ -74,7 +75,6 @@ public class WarehouseTests {
             assert nextID == particleID;
             atomids.add(particleID);
         }
-
         assert db.getCollectionSize(0) == NUM_PARTICLES;
 
         return atomids;

@@ -51,6 +51,11 @@ public class CassandraWarehouse implements InfoWarehouse {
     }
 
     @Override
+    public void clear() {
+
+    }
+
+    @Override
     public Collection getCollection(int collectionID) {
         try {
             //String id = String.valueOf(collectionID);
@@ -70,7 +75,11 @@ public class CassandraWarehouse implements InfoWarehouse {
     public String getCollectionName(int collectionID) {
         //String id = String.valueOf(collectionID);
         ResultSet rss = session.execute("SELECT name from particles.collections WHERE CollectionID = " + collectionID + "");
-        return rss.one().getString(0);
+        Row name = rss.one();
+        if(name == null){
+            return "";
+        }
+        return name.getString(0);
     }
 
 
@@ -79,12 +88,14 @@ public class CassandraWarehouse implements InfoWarehouse {
         try {
             ResultSet rs = session.execute("SELECT * FROM particles.collections WHERE collectionID = " + collectionID);
             if (rs != null) {
-                ResultSet rss = session.execute("Select MAX(AtomID) from particles.collections where collectionID =" + collectionID );
-
+                ResultSet rss = session.execute("Select COUNT(AtomID) from particles.collections where collectionID =" + collectionID );
                 Row result = rss.one();
-                int val = result.getInt(0);
-               // System.out.println("Val "+ val);
-                return val +1;
+                long val = result.getLong(0);
+                ResultSet one = session.execute("Select atomid from particles.collections where atomID = "+ -1+" AND collectionId = " +collectionID);
+                if(one.one() != null){
+                    return (int)val -1;
+                }
+                return (int)val;
             }
             else{
                 return -1;
@@ -142,7 +153,6 @@ public class CassandraWarehouse implements InfoWarehouse {
         if (!alteredCollections.contains((parentID)))
             alteredCollections.add((parentID));
 
-        //alteredCollections.add(parentID);
         bulkInsertFileWriter.println(parentID + "," + atomID);
     }
 
@@ -169,17 +179,8 @@ public class CassandraWarehouse implements InfoWarehouse {
                         + AID );
 
                 if(exists.one() == null) {
-                    //System.out.println(CID + " "+AID);
-                    //ResultSet rs1 = session.execute("SELECT * from particles.collections");
-                    //System.out.println(rs1.all());
                     session.execute("INSERT INTO particles.collections (CollectionID, AtomID) VALUES (?,?)", CID, AID);
-                    //ResultSet rs = session.execute("SELECT MAX(AtomID) from particles.collections");
-                    //System.out.println(rs.all());
-                    ResultSet test = session.execute("SELECT * FROM particles.collections");
-                    System.out.println(test.all());
                     session.execute("DELETE FROM particles.collections WHERE AtomId = "+ -1 + " AND CollectionID = "+ CID);
-                    test = session.execute("SELECT * FROM particles.collections");
-                    System.out.println(test.all());
 
                 }
                 else{
@@ -225,9 +226,7 @@ public class CassandraWarehouse implements InfoWarehouse {
     @Override
     public ArrayList<ArrayList<String>> getColNamesAndTypes(String datatype, DynamicTable table) {
         try {
-            String dtable = null;
             if (table == DynamicTable.AtomInfoSparse) {
-                dtable = "sparse";
                 String[] temp1 = {"masstocharge", "REAL", "area", "INT", "relarea", "REAL", "height", "INT"};
                 ArrayList<ArrayList<String>> result = new ArrayList<>();
                 ArrayList<String> temp2;
@@ -239,7 +238,6 @@ public class CassandraWarehouse implements InfoWarehouse {
                 }
                 return result;
             } else if (table == DynamicTable.AtomInfoDense) {
-                dtable = "dense";
                 String[] temp1 = {"time", "DATETIME", "laserpower", "REAL", "size", "REAL", "scatdelay", "INT", "specname", "VARCHAR(8000)"};
                 ArrayList<ArrayList<String>> result = new ArrayList<>();
                 ArrayList<String> temp2;
@@ -281,11 +279,9 @@ public class CassandraWarehouse implements InfoWarehouse {
         int AtomId = nextID;
         String[] denseSplit = dense.split(", ");
         SimpleDateFormat dateFormat = new SimpleDateFormat("''yyyy-MM-dd HH:mm:ss.S''");
-        //DateFormat dateFormat = DateFormat.getDateInstance();
         try {
             Date date5 = dateFormat.parse(denseSplit[0]);
-            LocalDate date = LocalDate.fromDaysSinceEpoch((int) date5.getTime());
-        session.execute("INSERT INTO particles.dense (time, laserpower, size, scatdelay, specname, atomID) Values (?, ?, ?, ?, ?, ?)",
+            session.execute("INSERT INTO particles.dense (time, laserpower, size, scatdelay, specname, atomID) Values (?, ?, ?, ?, ?, ?)",
                 date5, denseSplit[1], denseSplit[2], denseSplit[3], denseSplit[4], AtomId);
         }
         catch (ParseException e){
@@ -302,13 +298,8 @@ public class CassandraWarehouse implements InfoWarehouse {
             session.execute("INSERT INTO particles.sparse (area, relarea, masstocharge, height, AtomID) Values (?, ?, ?, ?, ?)",
                     area, relarea, mtc, height, String.valueOf(AtomId));
         }
-        //System.out.println("id "+id);
         session.execute("INSERT INTO particles.collections (CollectionID, AtomId) Values(?, ?)", id, AtomId);
-            ResultSet test = session.execute("SELECT * FROM particles.collections");
-            System.out.println(test.all());
             session.execute("DELETE FROM particles.collections WHERE AtomId = "+ -1 + " AND CollectionID = "+ id);
-            test = session.execute("SELECT * FROM particles.collections");
-            System.out.println(test.all());
 
         return AtomId;
     }
@@ -319,8 +310,6 @@ public class CassandraWarehouse implements InfoWarehouse {
         //Note for if this fails later: CQL query using the MAX function returns resultset with rows.size=1 if data is not found. And Row has only null values.
         try {
             int nextID;
-            //ResultSet rss = session.execute("SELECT * FROM particles.collections");
-            //System.out.println(rss.all());
             ResultSet rs = session.execute("SELECT MAX(AtomID) FROM particles.collections");
             Row result =  rs.one();
             if(result.isNull(0)){
@@ -343,21 +332,12 @@ public class CassandraWarehouse implements InfoWarehouse {
     public boolean addCenterAtom(int centerAtomID, int centerCollID) {
         try {
             ResultSet exists = session.execute("SELECT * FROM particles.collections WHERE collectionID = " +centerCollID);
-            //System.out.println("Exists " + exists.one());
             if(exists.one() != null) {
                 Number AtomID = (Number) centerAtomID;
                 Number collID = (Number) centerCollID;
-                //System.out.println(AtomID +" "+collID);
 
                 session.execute("INSERT INTO particles.centeratoms (AtomID, CollectionID) VALUES (?, ?)", AtomID.toString(), collID.toString());
                 session.execute("INSERT INTO particles.collections (AtomID, CollectionID) VALUES (?, ?)", (int)AtomID, (int)collID);
-
-                //ResultSet test = session.execute("SELECT * FROM particles.collections WHERE CollectionID = " + (int)collID);
-                //System.out.println("HERE LOOK HERE "+ test.all());
-
-                //if(centerAtomID == 0) {
-                //    session.execute("DELETE FROM particles.collections WHERE AtomId = "+ -1 + " AND CollectionID = "+ (int)collID);
-                //}
                 return true;
             }
             else{
@@ -375,8 +355,6 @@ public class CassandraWarehouse implements InfoWarehouse {
     public boolean setCollectionDescription(Collection collection, String description) {
         try {
             int id = collection.getCollectionID();
-            //ResultSet r1 = session.execute("SELECT name FROM particles.collections WHERE CollectionID = " + id );
-            String name = getCollectionName(id);
             ResultSet atomIDs = session.execute("SELECT AtomID FROM particles.collections WHERE collectionID =" + collection.getCollectionID());
             List<Row> atomlist = new ArrayList<Row>();
             atomlist = atomIDs.all();
@@ -429,26 +407,6 @@ public class CassandraWarehouse implements InfoWarehouse {
             reset();
         }
 
-        /**
-         * gets the dynamic table name according to the datatype and the table
-         * type.
-         *
-         * @param table
-         * @param datatype
-         * @return table name.
-         */
-        public String getDynamicTableName(DynamicTable table, String datatype) {
-            assert (!datatype.equals("root")) : "root isn't a datatype.";
-
-            if (table == DynamicTable.DataSetInfo)
-                return datatype + "DataSetInfo";
-            if (table == DynamicTable.AtomInfoDense)
-                return datatype + "AtomInfoDense";
-            if (table == DynamicTable.AtomInfoSparse)
-                return datatype + "AtomInfoSparse";
-            else return null;
-        }
-
         @Override
         public boolean next() {
             /**
@@ -487,8 +445,6 @@ public class CassandraWarehouse implements InfoWarehouse {
 
         @Override
         public ParticleInfo getCurrent() {
-            ResultSet before = session.execute("SELECT * FROM particles.collections");
-            System.out.println(before.all());
             try{
                 int atomID = atoms.pop().getInt(0);
                 ResultSet dense = session.execute("SELECT * FROM particles.dense WHERE atomID = "+ atomID);
@@ -514,18 +470,20 @@ public class CassandraWarehouse implements InfoWarehouse {
                     particleInfo.setParticleInfo(atominfo);
 
 
-
+                    ResultSet sparse = session.execute("SELECT * FROM particles.dense WHERE atomID = " + atomID + "");
                     ResultSet sparseMass = session.execute("SELECT masstocharge FROM particles.sparse WHERE atomID = \'" + atomID + "\'");
                     BinnedPeakList peaks = new BinnedPeakList();
-                    while (!sparseMass.isExhausted()) {
-                        String mass = sparseMass.one().getString(0);
+                    Row curMass = sparseMass.one();
+                    while (curMass != null) {
+                        String mass = curMass.getString(0);
                         ResultSet sparseArea = session.execute("SELECT area FROM particles.sparse WHERE masstocharge = \'" + mass + "\' AND atomID = \'" + atomID + "\'");
                         String area = sparseArea.one().getString(0);
-                        peaks.add(Integer.parseInt(mass), Integer.parseInt(area));
+                        float fmass = Float.parseFloat(mass);
+                        peaks.add((int)fmass, Integer.parseInt(area));
+                        curMass = sparseMass.one();
                     }
                     particleInfo.setBinnedList(peaks);
                     particleInfo.setID(particleInfo.getATOFMSParticleInfo().getAtomID());
-                    //System.out.println(atoms);
                     return particleInfo;
                 }
                 else{
@@ -551,10 +509,6 @@ public class CassandraWarehouse implements InfoWarehouse {
             List<Row> atomlist = new ArrayList<Row>();
             atomlist = atomIDs.all();
             atoms.addAll(atomlist);
-            ResultSet collections = session.execute("SELECT * FROM particles.collections WHERE collectionID =" + collection.getCollectionID());
-            //System.out.println("applesauce");
-            //System.out.println(collections.all());
-
         }
     }
 }
