@@ -29,9 +29,10 @@ public class InfluxDBBenchmark implements DatabaseLoad {
             influxDB.query(new Query("CREATE DATABASE " + dbName));
             influxDB.setDatabase(dbName);
             String rpName = "aRetentionPolicy";
-            influxDB.query(new Query("CREATE RETENTION POLICY " + rpName + " ON " + dbName + " DURATION 30h REPLICATION 2 SHARD DURATION 30m DEFAULT"));
+            influxDB.query(new Query("CREATE RETENTION POLICY " + rpName + " ON " + dbName + " DURATION 30h REPLICATION 1 SHARD DURATION 30m DEFAULT"));
             influxDB.setRetentionPolicy(rpName);
-            influxDB.enableBatch(BatchOptions.DEFAULTS);
+//            influxDB.enableBatch(BatchOptions.DEFAULTS);
+            influxDB.enableBatch(5000, 100, TimeUnit.MILLISECONDS);
 
             String dbdatasetname = (String) reader.par.get("dbdatasetname");
             influxDB.write(Point.measurement("metaData")
