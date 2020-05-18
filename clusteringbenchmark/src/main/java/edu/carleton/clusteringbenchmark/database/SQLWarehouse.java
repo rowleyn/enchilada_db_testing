@@ -37,10 +37,11 @@ public class SQLWarehouse implements InfoWarehouse {
     /**
      * Adds a new atom to InternalAtomOrder, assuming the atom is the next one
      * in its collection.
-     * @param	atomID	- the atom to add
-     * @param	collectionID - the collection to which the atom is added
+     *
+     * @param atomID       - the atom to add
+     * @param collectionID - the collection to which the atom is added
      */
-    private void addInternalAtom(int atomID, int collectionID){
+    private void addInternalAtom(int atomID, int collectionID) {
         Connection conn = null;
         try {
             Class.forName(driver);
@@ -51,7 +52,7 @@ public class SQLWarehouse implements InfoWarehouse {
                     "VALUES (" + atomID +", "+ collectionID+ ")";
             */
             String query = "INSERT INTO AtomMembership " +
-                    "VALUES (" + atomID +", "+ collectionID+ ")";
+                    "VALUES (" + atomID + ", " + collectionID + ")";
             stmt.execute(query);
             stmt.close();
 
@@ -71,7 +72,7 @@ public class SQLWarehouse implements InfoWarehouse {
     //InfoWarehouse methods
 
     // simple, gets a collection (dataset) from db with associated metadata
-    public Collection getCollection(int collectionID){
+    public Collection getCollection(int collectionID) {
         Connection conn = null;
 
         Collection collection;
@@ -82,7 +83,7 @@ public class SQLWarehouse implements InfoWarehouse {
             Class.forName(driver);
             conn = DriverManager.getConnection(url, userName, password);
             stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT CollectionID FROM Collections WHERE CollectionID = "+collectionID);
+            ResultSet rs = stmt.executeQuery("SELECT CollectionID FROM Collections WHERE CollectionID = " + collectionID);
             while (rs.next()) {
                 if (rs.getInt(1) == collectionID) {
                     isPresent = true;
@@ -95,8 +96,7 @@ public class SQLWarehouse implements InfoWarehouse {
                 rs = stmt.executeQuery("SELECT Datatype FROM Collections WHERE CollectionID = " + collectionID);
                 rs.next();
                 datatype = rs.getString(1);
-            }
-            else {
+            } else {
                 //ErrorLogger.writeExceptionToLogAndPrompt(getName(),"Error retrieving collection for collectionID "+collectionID);
                 System.err.println("collectionID not created yet!!");
                 return null;
@@ -114,11 +114,11 @@ public class SQLWarehouse implements InfoWarehouse {
 
             }
         }
-        return new Collection(datatype,collectionID,this);
+        return new Collection(datatype, collectionID, this);
     }
 
     //simple, gets the count of atoms in DB using SQL command
-    public int getCollectionSize(int collectionID){
+    public int getCollectionSize(int collectionID) {
         Connection conn = null;
         //PreparedStatement pst;
 
@@ -130,7 +130,7 @@ public class SQLWarehouse implements InfoWarehouse {
             ResultSet rs = stmt.executeQuery(
                     "SELECT COUNT(AtomID) FROM AtomMembership WHERE CollectionID = " + collectionID);
             boolean test = rs.next();
-            assert (test): "error getting atomID count.";
+            assert (test) : "error getting atomID count.";
             returnThis = rs.getInt(1);
             stmt.close();
         } catch (Exception e) {
@@ -148,11 +148,11 @@ public class SQLWarehouse implements InfoWarehouse {
     }
 
     // simple, creates a new empty collection in the db
-    public int createEmptyCollection( String datatype,
-                                      int parent,
-                                      String name,
-                                      String comment,
-                                      String description){
+    public int createEmptyCollection(String datatype,
+                                     int parent,
+                                     String name,
+                                     String comment,
+                                     String description) {
         Connection conn = null;
 
         if (description.length() == 0)
@@ -179,7 +179,7 @@ public class SQLWarehouse implements InfoWarehouse {
             nextID = rs.getInt(1) + 1;
             //If there are no collections, the nextID is 0
             ResultSet frs = stmt.executeQuery("SELECT TOP 1 1 FROM Collections");
-            if(!frs.next()){
+            if (!frs.next()) {
                 nextID = 0;
             }
 
@@ -216,20 +216,20 @@ public class SQLWarehouse implements InfoWarehouse {
     /**
      * Replaces characters which would interrupt SQL Server's
      * parsing of a string with their escape equivalents
+     *
      * @param s String to modify
      * @return The same string except in an acceptable string for
      * SQL Server
      */
-    private String removeReservedCharacters(String s)
-    {
+    private String removeReservedCharacters(String s) {
         //Replace additional characters as necessary
-        s = s.replace("'","''");
+        s = s.replace("'", "''");
         //s = s.replace('"', ' ');
         return s;
     }
 
     // initalizes a bulk insert using temporary files
-    public void bulkInsertInit() throws Exception{
+    public void bulkInsertInit() throws Exception {
         if (bulkInsertFile != null && bulkInsertFile.exists()) {
             bulkInsertFile.delete();
         }
@@ -238,7 +238,7 @@ public class SQLWarehouse implements InfoWarehouse {
         alteredCollections = new ArrayList<Integer>();
         try {
             //bulkInsertFile = File.createTempFile("bulkfile", ".txt");
-            bulkInsertFile =  new File("Temp"+File.separator+"bulkfile"+".txt");
+            bulkInsertFile = new File("Temp" + File.separator + "bulkfile" + ".txt");
             bulkInsertFile.deleteOnExit();
             bulkInsertFileWriter = new PrintWriter(new FileWriter(bulkInsertFile));
         } catch (IOException e) {
@@ -249,25 +249,25 @@ public class SQLWarehouse implements InfoWarehouse {
 
     // writes an atom to bulk-insert to the temp file
     public void bulkInsertAtom(int newChildID, int newHostID) throws Exception {
-            if (bulkInsertFileWriter == null || bulkInsertFile == null) {
-                throw new Exception("Must initialize bulk insert first!");
-            }
-            if (!alteredCollections.contains(new Integer(newHostID)))
-                alteredCollections.add(new Integer(newHostID));
+        if (bulkInsertFileWriter == null || bulkInsertFile == null) {
+            throw new Exception("Must initialize bulk insert first!");
+        }
+        if (!alteredCollections.contains(new Integer(newHostID)))
+            alteredCollections.add(new Integer(newHostID));
 
-            //alteredCollections.add(parentID);
-            bulkInsertFileWriter.println(newHostID+ "," + newChildID);
+        //alteredCollections.add(parentID);
+        bulkInsertFileWriter.println(newHostID + "," + newChildID);
 
     }
 
     // executes a bulk insert, reading from temp files
-    public void bulkInsertExecute() throws Exception{
+    public void bulkInsertExecute() throws Exception {
         //IF OBJECT_ID('AtomMembership', 'U') IS NULL CREATE TABLE AtomMembership (atomID INT, collectionID INT);
         Connection conn = null;
         try {
             long time = System.currentTimeMillis();
 
-            if(bulkInsertFileWriter==null || bulkInsertFile == null){
+            if (bulkInsertFileWriter == null || bulkInsertFile == null) {
                 try {
                     throw new Exception("Must initialize bulk insert first!");
                 } catch (Exception e) {
@@ -284,7 +284,7 @@ public class SQLWarehouse implements InfoWarehouse {
             File tempFile = null;
             sql.append("CREATE TABLE #temp (CollectionID INT, AtomID INT);\n");
             sql.append("BULK INSERT #temp" +
-                    " FROM '"+bulkInsertFile.getAbsolutePath()+"' " +
+                    " FROM '" + bulkInsertFile.getAbsolutePath() + "' " +
                     "WITH (FIELDTERMINATOR=',');\n");
             sql.append("INSERT INTO AtomMembership (CollectionID, AtomID)" +
                     " SELECT CollectionID, AtomID " +
@@ -337,7 +337,7 @@ public class SQLWarehouse implements InfoWarehouse {
      * @author turetske
      * Drops the temporary table #temp from the database SpASMSdb.
      */
-    private void dropTempTable(){
+    private void dropTempTable() {
         Connection conn = null;
         try {
             Class.forName(driver);
@@ -358,7 +358,7 @@ public class SQLWarehouse implements InfoWarehouse {
     }
 
     // not from enchilada, this is meant to replace the putInSubCollectionBulkExecute method in CollectionDivider so that it doesn't contain SQL
-    public void bulkDelete(StringBuilder atomIDsToDelete, Collection collection) throws Exception{
+    public void bulkDelete(StringBuilder atomIDsToDelete, Collection collection) throws Exception {
         Connection conn = null;
         //System.out.println("Done with INSERTS, about to do DELETE");
 
@@ -374,8 +374,7 @@ public class SQLWarehouse implements InfoWarehouse {
             delStmt.executeUpdate("IF (OBJECT_ID('stuffToDelete') IS NOT NULL)\n" +
                     "DROP TABLE stuffToDelete");
             delStmt.executeUpdate("CREATE TABLE stuffToDelete(atoms int)");
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             System.out.println("Error creating table stuffToDelete in database.");
         }
 
@@ -387,11 +386,10 @@ public class SQLWarehouse implements InfoWarehouse {
         PrintWriter pw = null;
         try {
             //temp = File.createTempFile("tempdelete", "data");
-            temp = new File("Temp"+File.separator+"tempDelete"+".txt");
+            temp = new File("Temp" + File.separator + "tempDelete" + ".txt");
             temp.deleteOnExit();
             pw = new PrintWriter(temp);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             System.out.println("Error Creating tempDelete file.");
         }
 
@@ -410,8 +408,7 @@ public class SQLWarehouse implements InfoWarehouse {
         try {
             delStmt.executeUpdate("BULK INSERT stuffToDelete\n" +
                     "FROM '" + temp.getAbsolutePath() + "' WITH (FIELDTERMINATOR = ',', ROWTERMINATOR = '\n');");
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             System.out.println("Error inserting into stuffToDelete.");
         }
         //ResultSet rs = delStmt.executeQuery("SELECT COUNT (*) FROM stuffToDelete");
@@ -434,8 +431,7 @@ public class SQLWarehouse implements InfoWarehouse {
         try {
             delStmt.executeUpdate(deletionquery);
             delStmt.executeUpdate("DROP TABLE stuffToDelete");
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             System.out.println("Error deleting from AtomMembership");
         }
         //System.out.println("...and dropping deletion table.");
@@ -446,7 +442,7 @@ public class SQLWarehouse implements InfoWarehouse {
 
 
     // simple, just returns a new AtomInfoOnlyCursor object on collection
-    public CollectionCursor getAtomInfoOnlyCursor(Collection collection){
+    public CollectionCursor getAtomInfoOnlyCursor(Collection collection) {
         return new SQLCursor(collection);
     }
 
@@ -464,10 +460,10 @@ public class SQLWarehouse implements InfoWarehouse {
             assert (col.getDatatype().equals("ATOFMS")) : "Wrong datatype for cursor.";
             collection = col;
 
-            String q = "SELECT "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID, OrigFilename, ScatDelay," +
-                    " LaserPower, [Time], Size FROM "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+", InternalAtomOrder WHERE" +
-                    " InternalAtomOrder.CollectionID = "+collection.getCollectionID() +
-                    " AND "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID = InternalAtomOrder.AtomID";
+            String q = "SELECT " + getDynamicTableName(DynamicTable.AtomInfoDense, collection.getDatatype()) + ".AtomID, OrigFilename, ScatDelay," +
+                    " LaserPower, [Time], Size FROM " + getDynamicTableName(DynamicTable.AtomInfoDense, collection.getDatatype()) + ", InternalAtomOrder WHERE" +
+                    " InternalAtomOrder.CollectionID = " + collection.getCollectionID() +
+                    " AND " + getDynamicTableName(DynamicTable.AtomInfoDense, collection.getDatatype()) + ".AtomID = InternalAtomOrder.AtomID";
 
             try {
                 partInfRS = stmt.executeQuery(q.toString());
@@ -529,10 +525,10 @@ public class SQLWarehouse implements InfoWarehouse {
         public void reset() {
             try {
                 partInfRS.close();
-                partInfRS = stmt.executeQuery("SELECT "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID, OrigFilename, ScatDelay," +
-                        " LaserPower, [Time], Size FROM "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+", InternalAtomOrder WHERE" +
-                        " InternalAtomOrder.CollectionID = "+collection.getCollectionID() +
-                        " AND "+getDynamicTableName(DynamicTable.AtomInfoDense,collection.getDatatype())+".AtomID = InternalAtomOrder.AtomID");
+                partInfRS = stmt.executeQuery("SELECT " + getDynamicTableName(DynamicTable.AtomInfoDense, collection.getDatatype()) + ".AtomID, OrigFilename, ScatDelay," +
+                        " LaserPower, [Time], Size FROM " + getDynamicTableName(DynamicTable.AtomInfoDense, collection.getDatatype()) + ", InternalAtomOrder WHERE" +
+                        " InternalAtomOrder.CollectionID = " + collection.getCollectionID() +
+                        " AND " + getDynamicTableName(DynamicTable.AtomInfoDense, collection.getDatatype()) + ".AtomID = InternalAtomOrder.AtomID");
             } catch (SQLException e) {
                 System.err.println("SQL Error resetting " +
                         "cursor: ");
@@ -668,10 +664,10 @@ public class SQLWarehouse implements InfoWarehouse {
 
 
     // simple, just gets the datatype (ATOFMS, AMs, etc.) of a collection
-    public String getCollectionDatatype(int collectionId){
+    public String getCollectionDatatype(int collectionId) {
         Connection conn = null;
         String datatype = "";
-        try{
+        try {
             Class.forName(driver);
             conn = DriverManager.getConnection(url, userName, password);
             Statement stmt = conn.createStatement();
@@ -696,7 +692,7 @@ public class SQLWarehouse implements InfoWarehouse {
     }
 
     // gets the names of columns for a given datatype, this is metadata
-    public ArrayList<ArrayList<String>> getColNamesAndTypes(String datatype, DynamicTable table){
+    public ArrayList<ArrayList<String>> getColNamesAndTypes(String datatype, DynamicTable table) {
         Connection conn = null;
         ArrayList<ArrayList<String>> colNames = new ArrayList<ArrayList<String>>();
         ArrayList<String> temp;
@@ -710,7 +706,7 @@ public class SQLWarehouse implements InfoWarehouse {
 
             while (rs.next()) {
                 temp = new ArrayList<String>();
-                temp.add(rs.getString(1).substring(1,rs.getString(1).length()-1));
+                temp.add(rs.getString(1).substring(1, rs.getString(1).length() - 1));
                 temp.add(rs.getString(2));
                 colNames.add(temp);
             }
@@ -729,14 +725,14 @@ public class SQLWarehouse implements InfoWarehouse {
     }
 
     // inserts a particle's sparse (peaks) and dense info into the db
-    public int insertParticle(String dense, ArrayList<String> sparse,Collection collection, int nextID){
+    public int insertParticle(String dense, ArrayList<String> sparse, Collection collection, int nextID) {
         Connection conn = null;
         PreparedStatement pst;
         try {
             Class.forName(driver);
             conn = DriverManager.getConnection(url, userName, password);
             //Create tables
-           // pst = conn.prepareStatement("CREATE TABLE ATOFMSAtomInfoSparse (AtomID INT, PeakLocation FLOAT, PeakArea INT, RealPeakArea FLOAT, PeakHeight INT, PRIMARY KEY (AtomID, PeakLocation));");
+            // pst = conn.prepareStatement("CREATE TABLE ATOFMSAtomInfoSparse (AtomID INT, PeakLocation FLOAT, PeakArea INT, RealPeakArea FLOAT, PeakHeight INT, PRIMARY KEY (AtomID, PeakLocation));");
             //pst.executeUpdate();
             //pst = conn.prepareStatement("CREATE TABLE ATOFMSAtomInfoDense (AtomID INT, Time SMALLDATETIME, LaserPower FLOAT, Size FLOAT, ScatDelay INT, OrigFileName VARCHAR(8000), PRIMARY KEY (AtomID));");
             //pst.executeUpdate();
@@ -754,16 +750,16 @@ public class SQLWarehouse implements InfoWarehouse {
             String name = denseparams[4];
 
             //Check for extra quotes
-            if(name.contains("\'")){
-                name = name.replace("\'","");
+            if (name.contains("\'")) {
+                name = name.replace("\'", "");
             }
             //Check that date exists
-            if(strDate.length() < 10){
+            if (strDate.length() < 10) {
                 strDate = "2000-01-01 00:00:00";
             }
 
             //System.out.println("INSERT INTO ATOFMSAtomInfoDense VALUES ("+ Integer.toString(currentAtomID) + ", '" + strDate + "', " + laserpower + ", " + size + ", " + scatDelay + ", '" + name +"')");
-            pst = conn.prepareStatement("INSERT INTO ATOFMSAtomInfoDense VALUES ("+ Integer.toString(currentAtomID) + ", '" + strDate + "', " + laserpower + ", " + size + ", " + scatDelay + ", '" + name +"')");
+            pst = conn.prepareStatement("INSERT INTO ATOFMSAtomInfoDense VALUES (" + Integer.toString(currentAtomID) + ", '" + strDate + "', " + laserpower + ", " + size + ", " + scatDelay + ", '" + name + "')");
             pst.execute();
 
             //Put data into ATOFMSAtomInfoSparse
@@ -773,7 +769,7 @@ public class SQLWarehouse implements InfoWarehouse {
                 String area = sparseparams[1];
                 String relarea = sparseparams[2];
                 String height = sparseparams[3];
-                pst = conn.prepareStatement("INSERT INTO ATOFMSAtomInfoSparse VALUES (" + Integer.toString(currentAtomID) + ", " + mtc + ", " + area + ", " + relarea + ", " + height +")");
+                pst = conn.prepareStatement("INSERT INTO ATOFMSAtomInfoSparse VALUES (" + Integer.toString(currentAtomID) + ", " + mtc + ", " + area + ", " + relarea + ", " + height + ")");
                 pst.execute();
             }
 
@@ -841,7 +837,7 @@ public class SQLWarehouse implements InfoWarehouse {
     }
 
     // gets the max id of any particle, this is the next id I guess?
-    public int getNextID(){
+    public int getNextID() {
         Connection conn = null;
         try {
             Class.forName(driver);
@@ -850,18 +846,17 @@ public class SQLWarehouse implements InfoWarehouse {
             int nextID = 0;
 
             ResultSet frs = stmt.executeQuery("SELECT TOP 1 1 FROM AtomMembership");
-            if(!frs.next()){
+            if (!frs.next()) {
                 nextID = 0;
-            }
-            else{
+            } else {
                 ResultSet rs = stmt.executeQuery("SELECT MAX(AtomID) FROM AtomMembership");
-                if(rs.next())
+                if (rs.next())
                     nextID = rs.getInt(1) + 1;
             }
             stmt.close();
             return nextID;
 
-        }catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         } finally {
             try {
@@ -876,7 +871,7 @@ public class SQLWarehouse implements InfoWarehouse {
     }
 
     // simple, adds a particle to the Centeratoms table
-    public boolean addCenterAtom(int centerAtomID, int centerCollID){
+    public boolean addCenterAtom(int centerAtomID, int centerCollID) {
         Connection conn = null;
         boolean success = false;
         try {
@@ -884,13 +879,13 @@ public class SQLWarehouse implements InfoWarehouse {
             conn = DriverManager.getConnection(url, userName, password);
             Statement stmt = conn.createStatement();
             String query = "INSERT INTO CenterAtoms \n" +
-                    "VALUES ("+ centerAtomID + ", " + centerCollID + ")";
+                    "VALUES (" + centerAtomID + ", " + centerCollID + ")";
             stmt.execute(query);
             //query = "INSERT INTO AtomMe";
             //stmt.execute(query);
             stmt.close();
             success = true;
-        }catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         } finally {
             try {
@@ -905,7 +900,7 @@ public class SQLWarehouse implements InfoWarehouse {
 
     // simple, updates a collection's description
     public boolean setCollectionDescription(Collection collection,
-                                            String description){
+                                            String description) {
         Connection conn = null;
         description = removeReservedCharacters(description);
         try {
@@ -931,7 +926,7 @@ public class SQLWarehouse implements InfoWarehouse {
     }
 
     // simple, gets the name of a collection
-    public String getCollectionName(int collectionID){
+    public String getCollectionName(int collectionID) {
         String name = "";
         Connection conn = null;
         try {
@@ -959,12 +954,12 @@ public class SQLWarehouse implements InfoWarehouse {
     }
 
     // returns a string naming the database system implementing this interface
-    public String dbname(){
+    public String dbname() {
         return "SQLExpress";
     }
 
     // clear out the database so it is fresh for running tests (not used in the benchmark)
-    public void clear(){
+    public void clear() {
         Connection conn = null;
         try {
             Class.forName(driver);
