@@ -29,9 +29,10 @@ public class InfluxDBBenchmark implements DatabaseLoad {
             influxDB.query(new Query("CREATE DATABASE " + dbName));
             influxDB.setDatabase(dbName);
             String rpName = "aRetentionPolicy";
-            influxDB.query(new Query("CREATE RETENTION POLICY " + rpName + " ON " + dbName + " DURATION 30h REPLICATION 2 SHARD DURATION 30m DEFAULT"));
+            influxDB.query(new Query("CREATE RETENTION POLICY " + rpName + " ON " + dbName + " DURATION 30h REPLICATION 1 SHARD DURATION 30m DEFAULT"));
             influxDB.setRetentionPolicy(rpName);
-            influxDB.enableBatch(BatchOptions.DEFAULTS);
+//            influxDB.enableBatch(BatchOptions.DEFAULTS);
+            influxDB.enableBatch(5000, 100, TimeUnit.MILLISECONDS);
 
             String dbdatasetname = (String) reader.par.get("dbdatasetname");
             influxDB.write(Point.measurement("metaData")
@@ -65,35 +66,29 @@ public class InfluxDBBenchmark implements DatabaseLoad {
                 for (int i = 0; i < data.size() - 1; i++) {
                     List spectrum = (List) ((Map) data.get(i)).get("sparse");
                     if (((Map) data.get(i)).get("name") != null) {
-
-                        Date date = (Date) ((Map) ((Map) data.get(i)).get("dense")).get("time");
+                        Map denseData = (Map) ((Map) data.get(i)).get("dense");
+                        Integer scatdelay = (Integer) denseData.get("scatdelay");
+                        Float size = (Float) denseData.get("size");
+                        Float laserpower = (Float) denseData.get("laserpower");
+                        String specname = (String) ((Map) data.get(i)).get("name");
+                        Date date = (Date) denseData.get("time");
                         DateFormat dateFormat = new SimpleDateFormat("''yyyy-MM-dd HH:mm:ss.S''");
                         String strDate = dateFormat.format(date);
-
-                        Integer scatdelay = (Integer) ((Map) ((Map) data.get(i)).get("dense")).get("scatdelay");
-                        Float size = (Float) ((Map) ((Map) data.get(i)).get("dense")).get("size");
-                        Float laserpower = (Float) ((Map) ((Map) data.get(i)).get("dense")).get("laserpower");
-//                        String specname = (String) ((Map) ((Map) data.get(i)).get("dense")).get("specname");
-
                         influxDB.write(Point.measurement("dense")
                                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-                                .tag("specname", (String) ((Map) data.get(i)).get("name"))
-                                .tag("par_id", dbdatasetname)
+                                .tag("specname", specname)
                                 .addField("_id", atomId)
                                 .addField("scatdelay", scatdelay)
                                 .addField("size", size)
                                 .addField("laserpower", laserpower)
                                 .addField("Date", strDate)
                                 .build());
-
                         influxDB.write(Point.measurement("internalAtomOrder")
                                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                                 .tag("collectionID", "0")
                                 .addField("atomID", atomId)
                                 .addField("deleted", 0)
                                 .build());
-
-
                         for (int j = 0; j < spectrum.size(); j++) {
                             Map sparseData = (Map) (((List) ((Map) data.get(i)).get("sparse")).get(j));
                             influxDB.write(Point.measurement("sparse")
