@@ -12,6 +12,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.Semaphore;
 
 public class CassandraBenchmark implements DatabaseLoad {
     public void clear(){
@@ -71,15 +72,15 @@ public class CassandraBenchmark implements DatabaseLoad {
 
 
             session.execute("CREATE TABLE particles.dense (dbdatasetname varchar, time timestamp, laserpower varchar," +
-                                    " size varchar, scatdelay varchar, specname varchar, AtomID int, PRIMARY KEY (AtomID))");
+                                    " size varchar, scatdelay varchar, specname varchar, AtomID int, PRIMARY KEY (AtomID)) WITH compaction = { 'class' :  'LeveledCompactionStrategy'  }");
 
             //Assuming masstocharge represents location
             session.execute("CREATE TABlE particles.sparse (dbdatasetname varchar, area varchar, relarea varchar, " +
-                    "masstocharge varchar, height varchar, AtomID varchar, PRIMARY KEY (AtomID, masstocharge))");
+                    "masstocharge varchar, height varchar, AtomID varchar, PRIMARY KEY (AtomID, masstocharge)) WITH compaction = { 'class' :  'LeveledCompactionStrategy'  }");
 
-            session.execute("CREATE TABLE particles.collections (CollectionID int, Parent int, Name varchar, Comment varchar, Description varchar, Datatype varchar, AtomID int, PRIMARY KEY (CollectionId, AtomID))");
+            session.execute("CREATE TABLE particles.collections (CollectionID int, Parent int, Name varchar, Comment varchar, Description varchar, Datatype varchar, AtomID int, PRIMARY KEY (CollectionId, AtomID)) WITH compaction = { 'class' :  'LeveledCompactionStrategy'  }");
 
-            session.execute("CREATE TABLE particles.centeratoms (AtomID varchar, CollectionID varchar, PRIMARY KEY(CollectionID, AtomID))");
+            session.execute("CREATE TABLE particles.centeratoms (AtomID varchar, CollectionID varchar, PRIMARY KEY(CollectionID, AtomID)) WITH compaction = { 'class' :  'LeveledCompactionStrategy'  }");
 
             boolean moretoread = true;
             int setindex = 0;
@@ -87,40 +88,36 @@ public class CassandraBenchmark implements DatabaseLoad {
             String particleCollectionName = reader.par.get("dbdatasetname") + "_particles";
             PreparedStatement query = session.prepare("INSERT INTO particles.sparse (dbdatasetname, area, relarea, masstocharge, height, AtomID) Values (?, ?, ?, ?, ?, ?)");
             while(moretoread) {
-                System.out.println("HELLO KELSEY ALL IS WELL");
+                BatchStatement batch = new BatchStatement(BatchStatement.Type.UNLOGGED);
                 List data = reader.readNSpectraFrom(1, setindex);
                 setindex = (int)data.get(data.size() - 1);
                 for (int i = 0; i < data.size() - 1; i++) {
                     if(((Map)data.get(i)).get("name") == null){ break;}
                     List<Map> sparse = (List<Map>)((Map)data.get(i)).get("sparse");
-                    Map<String, Integer> dense = (Map)((Map)data.get(i)).get("dense");
                     Date date = (Date) ((Map) ((Map) data.get(i)).get("dense")).get("time");
-                    //DateFormat dateFormat = new SimpleDateFormat("'MM-dd-yyyy HH:mm:ss'");
-                    //String strDate = dateFormat.format(date);
                     String laserpower= ((Map)((Map)data.get(i)).get("dense")).get("laserpower").toString();
                     String size =  ((Map)((Map)data.get(i)).get("dense")).get("size").toString();
                     String scatdelay =  ((Map)((Map)data.get(i)).get("dense")).get("scatdelay").toString();
                     String specname = (String) ((Map)((Map)data.get(i)).get("dense")).get("specname");
                     session.executeAsync("INSERT INTO particles.dense (dbdatasetname, time, laserpower, size, scatdelay, specname, AtomID) Values (?, ?, ?, ?, ?, ?, ?)",
-                            dbdatasetname, date, laserpower, size, scatdelay, specname, v);
-                    int k = 0;
+                         dbdatasetname, date, laserpower, size, scatdelay, specname, v);
 
+                    int k = 0;
                     for(int j = 0; j <sparse.size(); j++){
-                    //for(int j = 0; j <2; j++){
                         int area = (int) sparse.get(j).get("area");
                         String relarea = sparse.get(j).get("relarea").toString();
                         String masstocharge = sparse.get(j).get("masstocharge").toString();
                         String height =  sparse.get(j).get("masstocharge").toString();
 
-                        BatchStatement batch = new BatchStatement(BatchStatement.Type.UNLOGGED).add(query.bind(dbdatasetname, String.valueOf(area), relarea, masstocharge, height, String.valueOf(v)));
-                        if(k >=500){
-                            session.execute(batch);
-
+                        batch.add(query.bind(dbdatasetname, String.valueOf(area), relarea, masstocharge, height, String.valueOf(v)));
+                        if(k >3000 || j >= sparse.size()){
+                            session.executeAsync(batch);
                             k =0;
                         }
                         else{k++;}
 
                     }
+
                     session.executeAsync("INSERT INTO particles.collections (CollectionID, name, AtomId) Values(?, ?, ?)", 0, particleCollectionName, v);
                     v++;
 
@@ -134,8 +131,9 @@ public class CassandraBenchmark implements DatabaseLoad {
             Row row = rs.one();
             System.out.println(row.getString("release_version"));
 
+            session.close();
 
-        } catch (CassandraException ce) {
+        } catch (CassandraException  ce) {
             if (cluster != null) cluster.close();
             out.println("Something went wrong...");
             out.print(ce);
