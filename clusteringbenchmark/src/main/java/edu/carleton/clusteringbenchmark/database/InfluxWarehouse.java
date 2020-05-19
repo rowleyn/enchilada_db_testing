@@ -32,6 +32,9 @@ public class InfluxWarehouse implements InfoWarehouse{
         influxDB.query(new Query("CREATE RETENTION POLICY " + rpName + " ON " + dbName + " DURATION 30h " +
                 "REPLICATION 2 SHARD DURATION 30m DEFAULT"));
         influxDB.setRetentionPolicy(rpName);
+//        influxDB.enableBatch(BatchOptions.DEFAULTS);
+        influxDB.enableBatch(5000, 100, TimeUnit.MILLISECONDS);
+        influxDB.setDatabase(dbName);
     }
 
     public void clear(){
@@ -296,8 +299,6 @@ public class InfluxWarehouse implements InfoWarehouse{
                 System.err.println("collectionID not created yet!");
                 return -1;
             } else {
-                influxDB.enableBatch(BatchOptions.DEFAULTS);
-                influxDB.setDatabase(dbName);
                 int atomId = nextID;
                 String[] denseparams = dense.split(", ");
                 influxDB.write(Point.measurement("dense")
